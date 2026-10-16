@@ -1,10 +1,3 @@
--- ============================================================
--- Datos de prueba SOLO PARA DESARROLLO (todos ficticios).
--- Migracion repetible: se vuelve a ejecutar si el archivo cambia.
--- INSERT IGNORE evita duplicados gracias a las claves unicas.
--- Los usuarios (con contrasena BCrypt) se crean desde Java al arrancar,
--- nunca con hashes o claves escritas aqui.
--- ============================================================
 INSERT IGNORE INTO modulo_atencion (numero_modulo, estado, activo) VALUES
   ('1', 'DISPONIBLE', 1),
   ('2', 'DISPONIBLE', 1),
