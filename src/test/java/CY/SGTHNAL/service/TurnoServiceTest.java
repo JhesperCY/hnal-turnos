@@ -133,4 +133,20 @@ class TurnoServiceTest {
         assertEquals(EstadoTurno.AUSENTE, turno.getEstado());
         assertEquals(EstadoModulo.DISPONIBLE, sesion.getModulo().getEstado());
     }
+
+    @Test
+    void elLlamadoSePuedeRepetirMientrasElTurnoEstaEnAtencion() {
+        turnoService.registrarTurno(TipoDocumento.DNI, documentoNuevo(), null, TipoAtencion.GENERAL);
+        Turno llamado = turnoService.llamarSiguiente(sesion.getIdSesion()).orElseThrow();
+        assertEquals(0, llamado.getRepeticionesLlamado());
+
+        turnoService.repetirLlamado(sesion.getIdSesion());
+        turnoService.repetirLlamado(sesion.getIdSesion());
+        assertEquals(2, llamado.getRepeticionesLlamado());
+    }
+
+    @Test
+    void noSePuedeRepetirUnLlamadoSiNoHayTurnoEnAtencion() {
+        assertThrows(NegocioException.class, () -> turnoService.repetirLlamado(sesion.getIdSesion()));
+    }
 }

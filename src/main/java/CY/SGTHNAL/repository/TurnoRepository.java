@@ -27,7 +27,12 @@ public interface TurnoRepository extends JpaRepository<Turno, Integer> {
 
     Optional<Turno> findFirstBySesionAtencionAndEstado(SesionModulo sesion, EstadoTurno estado);
 
+    /** Los ultimos 5 turnos llamados de la jornada, el mas reciente primero (pantalla TV). */
+    List<Turno> findTop5ByJornadaAndHoraLlamadoIsNotNullOrderByHoraLlamadoDescIdTurnoDesc(Jornada jornada);
+
     long countByJornadaAndEstado(Jornada jornada, EstadoTurno estado);
+
+    long countByJornadaAndEstadoAndTipoAtencion(Jornada jornada, EstadoTurno estado, TipoAtencion tipoAtencion);
 
     long countByJornada(Jornada jornada);
 

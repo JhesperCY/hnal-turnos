@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: cabecera('Kiosko')}"></head>
+<body class="bg-light">
+<main class="container py-4" style="max-width: 42rem;">
+    <h1 class="text-center display-6 mb-1">Hospital Nacional Arzobispo Loayza</h1>
+    <p class="text-center text-muted fs-4 mb-4">Solicite su turno de atención</p>
+
+    <div th:if="${error}" class="alert alert-danger fs-5" role="alert" th:text="${error}"></div>
+    <div th:unless="${disponible}" class="alert alert-warning fs-5" role="alert">
+        El servicio de turnos no está disponible por ahora. Consulte al personal.
+    </div>
+
+    <form th:if="${disponible}" th:action="@{/kiosko/turno}" method="post" class="card card-body p-4 shadow-sm">
+        <h2 class="h4">1. Tipo de documento</h2>
+        <div class="btn-group mb-4" role="group" aria-label="Tipo de documento">
+            <th:block th:each="tipo, it : ${tiposDocumento}">
+                <input type="radio" class="btn-check" name="tipoDocumento" autocomplete="off"
+                       th:id="'doc-' + ${tipo.name()}" th:value="${tipo.name()}" th:checked="${it.first}">
+                <label class="btn btn-outline-primary btn-lg" th:for="'doc-' + ${tipo.name()}"
+                       th:text="${tipo.name() == 'CE' ? 'Carnet de extranjería' : (tipo.name() == 'DNI' ? 'DNI' : 'Pasaporte')}">DNI</label>
+            </th:block>
+        </div>
+
+        <h2 class="h4">2. Número de documento</h2>
+        <input type="text" name="numeroDocumento" class="form-control form-control-lg mb-4"
+               maxlength="12" autocomplete="off" required>
+
+        <h2 class="h4">3. Teléfono <small class="text-muted fs-6">(opcional)</small></h2>
+        <input type="tel" name="telefono" class="form-control form-control-lg mb-1"
+               maxlength="15" autocomplete="off">
+        <p class="text-muted mb-4">Con su teléfono podremos avisarle cuando se acerque su turno.</p>
+
+        <h2 class="h4">4. Tipo de atención</h2>
+        <div class="d-grid gap-2 mb-2">
+            <input type="radio" class="btn-check" name="tipoAtencion" id="atencion-general" value="GENERAL" autocomplete="off" checked>
+            <label class="btn btn-outline-secondary btn-lg py-3" for="atencion-general">General</label>
+
+            <input type="radio" class="btn-check" name="tipoAtencion" id="atencion-preferencial" value="PREFERENCIAL" autocomplete="off">
+            <label class="btn btn-outline-warning btn-lg py-3" for="atencion-preferencial">
+                Preferencial<br><small>Adulto mayor, gestante o persona con discapacidad</small>
+            </label>
+        </div>
+        <p class="text-muted mb-4">El personal verificará que su selección sea correcta.</p>
+
+        <button type="submit" class="btn btn-primary btn-lg w-100 py-3 fs-4">Obtener turno</button>
+    </form>
+</main>
+</body>
+</html>

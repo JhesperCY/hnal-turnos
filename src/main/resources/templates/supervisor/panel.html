@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: cabecera('Supervisor')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: barra('Panel del supervisor')}"></nav>
+<main class="container pb-4">
+    <div th:if="${mensaje}" class="alert alert-success" role="alert" th:text="${mensaje}"></div>
+    <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
+
+    <div th:if="${panel.jornada() == null}" class="card card-body shadow-sm text-center mb-3">
+        <p class="fs-5">No hay una jornada activa.</p>
+        <form th:action="@{/supervisor/jornada/abrir}" method="post">
+            <button type="submit" class="btn btn-primary btn-lg">Abrir jornada de hoy</button>
+        </form>
+    </div>
+
+    <th:block th:if="${panel.jornada() != null}">
+        <p class="text-muted">
+            Jornada del <span th:text="${#temporals.format(panel.jornada().fecha(), 'dd/MM/yyyy')}">01/01/2026</span>,
+            abierta a las <span th:text="${#temporals.format(panel.jornada().horaApertura(), 'HH:mm')}">08:00</span>.
+            Esta pantalla se actualiza sola cada 10 segundos.
+        </p>
+
+        <div class="row g-3 mb-3 text-center">
+            <div class="col-6 col-md-2"><div class="card card-body shadow-sm">
+                <div class="fs-2 fw-bold" th:text="${panel.resumen().generalEnEspera()}">0</div><div class="small text-muted">En espera (general)</div></div></div>
+            <div class="col-6 col-md-2"><div class="card card-body shadow-sm">
+                <div class="fs-2 fw-bold" th:text="${panel.resumen().preferencialEnEspera()}">0</div><div class="small text-muted">En espera (preferencial)</div></div></div>
+            <div class="col-6 col-md-2"><div class="card card-body shadow-sm">
+                <div class="fs-2 fw-bold" th:text="${panel.resumen().llamados()}">0</div><div class="small text-muted">En atención</div></div></div>
+            <div class="col-6 col-md-2"><div class="card card-body shadow-sm">
+                <div class="fs-2 fw-bold" th:text="${panel.resumen().atendidos()}">0</div><div class="small text-muted">Atendidos</div></div></div>
+            <div class="col-6 col-md-2"><div class="card card-body shadow-sm">
+                <div class="fs-2 fw-bold" th:text="${panel.resumen().ausentes()}">0</div><div class="small text-muted">Ausentes</div></div></div>
+            <div class="col-6 col-md-2"><div class="card card-body shadow-sm">
+                <div class="fs-2 fw-bold"
+                     th:text="${panel.resumen().promedioAtencionMin() != null} ? ${#numbers.formatDecimal(panel.resumen().promedioAtencionMin(), 1, 1)} + ' min' : '—'">—</div>
+                <div class="small text-muted">Atención promedio</div></div></div>
+        </div>
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header">Cola de espera (en el orden en que se llamará)</div>
+            <table class="table mb-0" th:if="${!#lists.isEmpty(panel.cola())}">
+                <thead><tr><th>Orden</th><th>Turno</th><th>Tipo</th><th>Espera</th><th>Puntaje de urgencia</th></tr></thead>
+                <tbody>
+                <tr th:each="f, it : ${panel.cola()}">
+                    <td th:text="${it.count}">1</td>
+                    <td class="fw-bold" th:text="${f.codigo()}">G-001</td>
+                    <td><span class="badge"
+                              th:classappend="${f.tipo().name() == 'PREFERENCIAL'} ? 'text-bg-warning' : 'text-bg-secondary'"
+                              th:text="${f.tipo().name() == 'PREFERENCIAL'} ? 'Preferencial' : 'General'">General</span></td>
+                    <td th:text="${f.minutosEspera()} + ' min'">0 min</td>
+                    <td th:text="${#numbers.formatDecimal(f.puntaje(), 1, 1)}">0.0</td>
+                </tr>
+                </tbody>
+            </table>
+            <div th:if="${#lists.isEmpty(panel.cola())}" class="card-body text-muted">No hay turnos en espera.</div>
+        </div>
+    </th:block>
+
+    <div class="card shadow-sm">
+        <div class="card-header">Módulos</div>
+        <table class="table mb-0">
+            <thead><tr><th>Módulo</th><th>Estado</th><th>Personal</th></tr></thead>
+            <tbody>
+            <tr th:each="m : ${panel.modulos()}">
+                <td class="fw-bold" th:text="${m.numero()}">1</td>
+                <td th:text="${!m.activo()} ? 'Inactivo' : (${m.personal() == null} ? 'Sin personal' : ${m.estado().name()})">DISPONIBLE</td>
+                <td th:text="${m.personal() != null} ? ${m.personal()} : '—'">—</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+<script>
+    setTimeout(function () { window.location.reload(); }, 10000);
+</script>
+</body>
+</html>

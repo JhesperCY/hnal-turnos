@@ -66,6 +66,10 @@ public class Turno {
 
     private LocalDateTime horaLlamado;
 
+    /** Veces que el personal pidio volver a llamar este turno (repite el anuncio en la TV). */
+    @Column(nullable = false)
+    private Integer repeticionesLlamado = 0;
+
     private LocalDateTime horaAtencionFin;
 
     @Column(precision = 8, scale = 2)
@@ -106,6 +110,9 @@ public class Turno {
 
     public LocalDateTime getHoraLlamado() { return horaLlamado; }
     public void setHoraLlamado(LocalDateTime horaLlamado) { this.horaLlamado = horaLlamado; }
+
+    public Integer getRepeticionesLlamado() { return repeticionesLlamado; }
+    public void setRepeticionesLlamado(Integer repeticionesLlamado) { this.repeticionesLlamado = repeticionesLlamado; }
 
     public LocalDateTime getHoraAtencionFin() { return horaAtencionFin; }
     public void setHoraAtencionFin(LocalDateTime horaAtencionFin) { this.horaAtencionFin = horaAtencionFin; }

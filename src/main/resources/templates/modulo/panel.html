@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: cabecera('Panel de módulo')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: barra(${'Módulo ' + panel.numeroModulo()})}"></nav>
+<main class="container pb-4" style="max-width: 48rem;">
+    <div th:if="${mensaje}" class="alert alert-success" role="alert" th:text="${mensaje}"></div>
+    <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
+    <div th:unless="${panel.jornadaActiva()}" class="alert alert-warning" role="alert">
+        No hay una jornada activa. El supervisor debe abrirla.
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body text-center p-4">
+            <th:block th:if="${panel.actual() != null}">
+                <p class="text-muted mb-1">Turno en atención</p>
+                <p class="display-2 fw-bold mb-1" th:text="${panel.actual().codigo()}">G-001</p>
+                <p class="mb-1">
+                    <span class="badge fs-6"
+                          th:classappend="${panel.actual().tipo().name() == 'PREFERENCIAL'} ? 'text-bg-warning' : 'text-bg-secondary'"
+                          th:text="${panel.actual().tipo().name() == 'PREFERENCIAL'} ? 'Preferencial' : 'General'">General</span>
+                </p>
+                <p class="text-muted"
+                   th:text="'Llamado hace ' + ${panel.actual().minutosDesdeLlamado()} + ' min. Tiempo de gracia: ' + ${panel.actual().graciaMinutos()} + ' min'">
+                    Llamado hace 0 min
+                </p>
+                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                    <form th:action="@{/modulo/repetir}" method="post">
+                        <button type="submit" class="btn btn-warning btn-lg px-4">Volver a llamar</button>
+                    </form>
+                    <form th:action="@{/modulo/completar}" method="post">
+                        <button type="submit" class="btn btn-success btn-lg px-5">Atención completada</button>
+                    </form>
+                </div>
+            </th:block>
+            <th:block th:if="${panel.actual() == null}">
+                <p class="fs-4 text-muted mb-3">Sin turno en atención</p>
+                <form th:action="@{/modulo/llamar}" method="post">
+                    <button type="submit" class="btn btn-primary btn-lg px-5"
+                            th:disabled="${!panel.jornadaActiva() || panel.enEspera() == 0}">Llamar siguiente</button>
+                </form>
+            </th:block>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header" th:text="'En espera: ' + ${panel.enEspera()}">En espera</div>
+        <table class="table mb-0" th:if="${!#lists.isEmpty(panel.proximos())}">
+            <thead><tr><th>Orden</th><th>Turno</th><th>Tipo</th><th>Espera</th></tr></thead>
+            <tbody>
+            <tr th:each="f, it : ${panel.proximos()}">
+                <td th:text="${it.count}">1</td>
+                <td class="fw-bold" th:text="${f.codigo()}">G-001</td>
+                <td th:text="${f.tipo().name() == 'PREFERENCIAL'} ? 'Preferencial' : 'General'">General</td>
+                <td th:text="${f.minutosEspera()} + ' min'">0 min</td>
+            </tr>
+            </tbody>
+        </table>
+        <div th:if="${#lists.isEmpty(panel.proximos())}" class="card-body text-muted">No hay turnos en espera.</div>
+    </div>
+
+    <form th:action="@{/modulo/cerrar-sesion}" method="post" class="text-center">
+        <button type="submit" class="btn btn-outline-secondary">Cerrar mi sesión de módulo</button>
+    </form>
+</main>
+</body>
+</html>

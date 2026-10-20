@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: cabecera('Elegir módulo')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: barra('Personal de módulo')}"></nav>
+<main class="container" style="max-width: 40rem;">
+    <div th:if="${mensaje}" class="alert alert-success" role="alert" th:text="${mensaje}"></div>
+    <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
+
+    <div class="card card-body shadow-sm text-center">
+        <h1 class="h4 mb-3">¿En qué módulo va a trabajar?</h1>
+        <div>
+            <form th:each="m : ${libres}" th:action="@{/modulo/iniciar}" method="post" class="d-inline">
+                <input type="hidden" name="idModulo" th:value="${m.idModulo}">
+                <button type="submit" class="btn btn-outline-primary btn-lg m-1"
+                        th:text="'Módulo ' + ${m.numeroModulo}">Módulo 1</button>
+            </form>
+        </div>
+        <p th:if="${#lists.isEmpty(libres)}" class="text-muted mb-0">
+            No hay módulos libres. Consulte con el supervisor.
+        </p>
+    </div>
+</main>
+</body>
+</html>

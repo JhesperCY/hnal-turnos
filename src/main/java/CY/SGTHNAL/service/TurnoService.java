@@ -42,6 +42,10 @@ public class TurnoService {
 
     private static final List<EstadoTurno> ACTIVOS = List.of(EstadoTurno.EN_ESPERA, EstadoTurno.LLAMADO);
 
+    /** El bono preferencial se limita entre 4 y 15 minutos (criterio del prototipo V0). */
+    private static final double BONO_MINIMO_MIN = 4.0;
+    private static final double BONO_MAXIMO_MIN = 15.0;
+
     private final TurnoRepository turnos;
     private final JornadaRepository jornadas;
     private final PacienteRepository pacientes;
@@ -152,6 +156,19 @@ public class TurnoService {
         return Optional.of(turno);
     }
 
+    /**
+     * "Volver a llamar": el modulo pide repetir el anuncio del turno que tiene en atencion. La TV lo detecta
+     * por el contador de repeticiones. No reinicia el tiempo de gracia.
+     */
+    @Transactional
+    public Turno repetirLlamado(Integer idSesion) {
+        SesionModulo sesion = sesionAbierta(idSesion);
+        Turno turno = turnos.findFirstBySesionAtencionAndEstado(sesion, EstadoTurno.LLAMADO)
+                .orElseThrow(() -> new NegocioException("No hay un turno en atención para volver a llamar"));
+        turno.setRepeticionesLlamado(turno.getRepeticionesLlamado() + 1);
+        return turnos.save(turno);
+    }
+
     /** CU04: el personal termina de atender; se registra duracion y el modulo queda disponible. */
     @Transactional
     public Turno completarAtencion(Integer idSesion) {
@@ -216,11 +233,12 @@ public class TurnoService {
         return marcados;
     }
 
-    /** Bono preferencial: tiempo de atencion de 2 turnos generales (promedio real o valor por defecto). */
+    /** Bono preferencial: tiempo de atencion de 2 turnos generales (promedio real o valor por defecto), entre 4 y 15 min. */
     BigDecimal bonoPreferencial(Jornada jornada) {
         Double promedio = turnos.promedioDuracion(jornada, EstadoTurno.ATENDIDO);
         double base = (promedio == null || promedio <= 0) ? atencionDefaultMin : promedio;
-        return BigDecimal.valueOf(base * 2).setScale(2, RoundingMode.HALF_UP);
+        double bono = Math.min(BONO_MAXIMO_MIN, Math.max(BONO_MINIMO_MIN, base * 2));
+        return BigDecimal.valueOf(bono).setScale(2, RoundingMode.HALF_UP);
     }
 
     private Jornada jornadaActivaBloqueada() {

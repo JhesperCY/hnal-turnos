@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: cabecera('Su turno')}"></head>
+<body class="bg-light">
+<style>
+    @media print {
+        .no-imprimir { display: none !important; }
+        body { background: #fff !important; }
+        .card { border: 1px dashed #000 !important; box-shadow: none !important; }
+    }
+</style>
+<main class="container py-4" style="max-width: 28rem;">
+    <div class="card text-center shadow-sm">
+        <div class="card-body p-4">
+            <p class="text-muted mb-1">Hospital Nacional Arzobispo Loayza</p>
+            <p class="fs-4 mb-0">Su turno</p>
+            <p class="display-1 fw-bold mb-2" th:text="${ticket.codigo()}">G-001</p>
+            <p class="mb-2">
+                <span class="badge fs-6"
+                      th:classappend="${ticket.tipo().name() == 'PREFERENCIAL'} ? 'text-bg-warning' : 'text-bg-secondary'"
+                      th:text="${ticket.tipo().name() == 'PREFERENCIAL'} ? 'Atención preferencial' : 'Atención general'">General</span>
+            </p>
+            <p class="mb-1" th:text="${#temporals.format(ticket.horaRegistro(), 'dd/MM/yyyy HH:mm')}">01/01/2026 08:00</p>
+            <p class="text-muted mb-0" th:text="'Personas en espera: ' + ${ticket.enEspera()}">Personas en espera: 0</p>
+        </div>
+    </div>
+
+    <div class="d-grid gap-2 mt-3 no-imprimir">
+        <button type="button" class="btn btn-primary btn-lg" onclick="window.print()">Imprimir ticket</button>
+        <a th:href="@{/kiosko}" class="btn btn-outline-secondary btn-lg">Nuevo turno</a>
+    </div>
+    <p class="text-center text-muted mt-3 no-imprimir">Esta pantalla volverá al inicio en 30 segundos.</p>
+</main>
+<script>
+    setTimeout(function () { window.location.href = '/kiosko'; }, 30000);
+</script>
+</body>
+</html>
