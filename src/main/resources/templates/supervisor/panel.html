@@ -1,79 +1,103 @@
 <!DOCTYPE html>
 <html lang="es" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/base :: cabecera('Supervisor')}"></head>
-<body class="bg-light">
-<nav th:replace="~{fragments/base :: barra('Panel del supervisor')}"></nav>
-<main class="container pb-4">
+<head th:replace="~{fragments/base :: cabecera('Resumen')}"></head>
+<body class="admin-bg">
+<header th:replace="~{fragments/base :: navSupervisor('resumen')}"></header>
+
+<div class="container py-4">
     <div th:if="${mensaje}" class="alert alert-success" role="alert" th:text="${mensaje}"></div>
     <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
 
-    <div th:if="${panel.jornada() == null}" class="card card-body shadow-sm text-center mb-3">
-        <p class="fs-5">No hay una jornada activa.</p>
-        <form th:action="@{/supervisor/jornada/abrir}" method="post">
+    <div th:if="${panel.jornada() == null}" class="hnal-card text-center mb-3">
+        <p class="fs-5 mb-2">No hay una jornada activa.</p>
+        <p class="small text-muted">El kiosko queda fuera de horario y los módulos no pueden atender hasta que se abra.</p>
+        <form th:action="@{/supervisor/jornada/abrir}" method="post" class="m-0">
             <button type="submit" class="btn btn-primary btn-lg">Abrir jornada de hoy</button>
         </form>
     </div>
 
-    <th:block th:if="${panel.jornada() != null}">
-        <p class="text-muted">
+    <div class="hnal-grid-cards mb-3">
+        <div class="hnal-card metric-card">
+            <div class="badge bg-light text-dark mb-1">En espera</div>
+            <div class="metric-value" th:text="${panel.resumen() != null} ? ${panel.resumen().generalEnEspera()} : 0">0</div>
+            <small class="text-muted">Cola General</small>
+        </div>
+        <div class="hnal-card metric-card">
+            <div class="badge bg-light text-dark mb-1">En espera</div>
+            <div class="metric-value" th:text="${panel.resumen() != null} ? ${panel.resumen().preferencialEnEspera()} : 0">0</div>
+            <small class="text-muted">Cola Preferencial</small>
+        </div>
+        <div class="hnal-card metric-card">
+            <div class="badge bg-light text-dark mb-1">Activos</div>
+            <div class="metric-value" th:text="${panel.modulosDisponibles()} + '/' + ${panel.modulosTotales()}">0/0</div>
+            <small class="text-muted">Módulos disponibles</small>
+        </div>
+        <div class="hnal-card metric-card">
+            <div class="badge bg-danger mb-1">Sin resolver</div>
+            <div class="metric-value" th:text="${panel.incidenciasPendientes()}">0</div>
+            <small class="text-muted">Incidencias pendientes</small>
+        </div>
+    </div>
+
+    <div th:if="${panel.jornada() != null}" class="hnal-card mb-3">
+        <div class="fw-bold text-warning mb-2"><i class="bi bi-lightning-charge"></i> Priorización por urgencia ponderada</div>
+        <p class="small text-muted mb-2">
             Jornada del <span th:text="${#temporals.format(panel.jornada().fecha(), 'dd/MM/yyyy')}">01/01/2026</span>,
             abierta a las <span th:text="${#temporals.format(panel.jornada().horaApertura(), 'HH:mm')}">08:00</span>.
-            Esta pantalla se actualiza sola cada 10 segundos.
+            Esta pantalla se actualiza sola mientras usted la usa.
         </p>
-
-        <div class="row g-3 mb-3 text-center">
-            <div class="col-6 col-md-2"><div class="card card-body shadow-sm">
-                <div class="fs-2 fw-bold" th:text="${panel.resumen().generalEnEspera()}">0</div><div class="small text-muted">En espera (general)</div></div></div>
-            <div class="col-6 col-md-2"><div class="card card-body shadow-sm">
-                <div class="fs-2 fw-bold" th:text="${panel.resumen().preferencialEnEspera()}">0</div><div class="small text-muted">En espera (preferencial)</div></div></div>
-            <div class="col-6 col-md-2"><div class="card card-body shadow-sm">
-                <div class="fs-2 fw-bold" th:text="${panel.resumen().llamados()}">0</div><div class="small text-muted">En atención</div></div></div>
-            <div class="col-6 col-md-2"><div class="card card-body shadow-sm">
-                <div class="fs-2 fw-bold" th:text="${panel.resumen().atendidos()}">0</div><div class="small text-muted">Atendidos</div></div></div>
-            <div class="col-6 col-md-2"><div class="card card-body shadow-sm">
-                <div class="fs-2 fw-bold" th:text="${panel.resumen().ausentes()}">0</div><div class="small text-muted">Ausentes</div></div></div>
-            <div class="col-6 col-md-2"><div class="card card-body shadow-sm">
-                <div class="fs-2 fw-bold"
-                     th:text="${panel.resumen().promedioAtencionMin() != null} ? ${#numbers.formatDecimal(panel.resumen().promedioAtencionMin(), 1, 1)} + ' min' : '—'">—</div>
-                <div class="small text-muted">Atención promedio</div></div></div>
+        <div class="row g-3 mb-2">
+            <div class="col-6 col-md-3"><small class="text-muted">T. promedio sistema</small>
+                <div class="fs-4 fw-bold" th:text="${panel.resumen().promedioAtencionMin() != null} ? ${#numbers.formatDecimal(panel.resumen().promedioAtencionMin(), 1, 1)} + ' min' : '-'">-</div></div>
+            <div class="col-6 col-md-3"><small class="text-muted">Bono preferencial</small>
+                <div class="fs-4 fw-bold text-success" th:text="'+' + ${#numbers.formatDecimal(panel.bono(), 1, 1)} + ' min'">-</div>
+                <small class="text-muted">2×prom, entre 4 y 15</small></div>
+            <div class="col-6 col-md-3"><small class="text-muted">Atendidos hoy</small>
+                <div class="fs-4 fw-bold" th:text="${panel.resumen().atendidos()}">0</div></div>
+            <div class="col-6 col-md-3"><small class="text-muted">Mayor urgencia</small>
+                <div class="fs-4 fw-bold text-danger" th:text="${#lists.isEmpty(panel.cola())} ? '-' : ${panel.cola().get(0).codigo()}">-</div></div>
         </div>
-
-        <div class="card shadow-sm mb-3">
-            <div class="card-header">Cola de espera (en el orden en que se llamará)</div>
-            <table class="table mb-0" th:if="${!#lists.isEmpty(panel.cola())}">
-                <thead><tr><th>Orden</th><th>Turno</th><th>Tipo</th><th>Espera</th><th>Puntaje de urgencia</th></tr></thead>
-                <tbody>
-                <tr th:each="f, it : ${panel.cola()}">
-                    <td th:text="${it.count}">1</td>
-                    <td class="fw-bold" th:text="${f.codigo()}">G-001</td>
-                    <td><span class="badge"
-                              th:classappend="${f.tipo().name() == 'PREFERENCIAL'} ? 'text-bg-warning' : 'text-bg-secondary'"
-                              th:text="${f.tipo().name() == 'PREFERENCIAL'} ? 'Preferencial' : 'General'">General</span></td>
-                    <td th:text="${f.minutosEspera()} + ' min'">0 min</td>
-                    <td th:text="${#numbers.formatDecimal(f.puntaje(), 1, 1)}">0.0</td>
-                </tr>
-                </tbody>
-            </table>
-            <div th:if="${#lists.isEmpty(panel.cola())}" class="card-body text-muted">No hay turnos en espera.</div>
+        <div class="small text-muted mb-1">Cola virtual ordenada por urgencia</div>
+        <div>
+            <span th:each="f, it : ${panel.cola()}" class="chip" th:classappend="${it.first} ? 'urgente'"
+                  th:text="${f.codigo()} + ' · ' + ${#numbers.formatDecimal(f.puntaje(), 1, 1)}">G-001</span>
+            <span th:if="${#lists.isEmpty(panel.cola())}" class="text-muted small">No hay turnos en espera.</span>
         </div>
-    </th:block>
+    </div>
 
-    <div class="card shadow-sm">
-        <div class="card-header">Módulos</div>
-        <table class="table mb-0">
-            <thead><tr><th>Módulo</th><th>Estado</th><th>Personal</th></tr></thead>
+    <div class="hnal-card">
+        <div class="fw-bold mb-2">Estado de módulos</div>
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Módulo</th><th>Estado</th><th>Turno activo</th><th>Atendidos hoy</th><th>Tiempo promedio</th></tr></thead>
             <tbody>
             <tr th:each="m : ${panel.modulos()}">
                 <td class="fw-bold" th:text="${m.numero()}">1</td>
-                <td th:text="${!m.activo()} ? 'Inactivo' : (${m.personal() == null} ? 'Sin personal' : ${m.estado().name()})">DISPONIBLE</td>
-                <td th:text="${m.personal() != null} ? ${m.personal()} : '—'">—</td>
+                <td>
+                    <span class="badge"
+                          th:classappend="${!m.activo()} ? 'bg-secondary' : (${m.personal() == null} ? 'bg-secondary' : (${m.estado().name() == 'PAUSADO'} ? 'bg-danger' : (${m.turnoActivo() != null} ? 'bg-warning text-dark' : 'bg-success')))"
+                          th:text="${!m.activo()} ? 'Inactivo' : (${m.personal() == null} ? 'Sin personal' : (${m.estado().name() == 'PAUSADO'} ? 'Pausado' : (${m.turnoActivo() != null} ? 'Ocupado' : 'Disponible')))">Disponible</span>
+                    <small class="text-muted ms-1" th:if="${m.personal() != null}" th:text="${m.personal()}"></small>
+                </td>
+                <td th:text="${m.turnoActivo() != null} ? ${m.turnoActivo()} : '—'">—</td>
+                <td th:text="${m.atendidosHoy()}">0</td>
+                <td th:text="${m.promedioMin() != null} ? ${#numbers.formatDecimal(m.promedioMin(), 1, 1)} + ' min' : '—'">—</td>
             </tr>
             </tbody>
         </table>
     </div>
-</main>
+</div>
+
 <script>
-    setTimeout(function () { window.location.reload(); }, 10000);
+    (function () {
+        var ultimaActividad = Date.now();
+        ['mousemove', 'keydown', 'click', 'touchstart'].forEach(function (evento) {
+            document.addEventListener(evento, function () { ultimaActividad = Date.now(); });
+        });
+        // Se refresca solo mientras haya actividad reciente (10 min): asi la sesion puede caducar a los 15 min de inactividad (RNF009).
+        setInterval(function () {
+            if (600000 > Date.now() - ultimaActividad) { window.location.reload(); }
+        }, 10000);
+    })();
 </script>
 </body>
 </html>

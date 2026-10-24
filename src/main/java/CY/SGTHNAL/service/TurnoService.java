@@ -129,6 +129,9 @@ public class TurnoService {
     @Transactional
     public Optional<Turno> llamarSiguiente(Integer idSesion) {
         SesionModulo sesion = sesionAbierta(idSesion);
+        if (sesion.getModulo().getEstado() == EstadoModulo.PAUSADO) {
+            throw new NegocioException("El módulo está en pausa. Reanúdelo para llamar al siguiente turno");
+        }
         Jornada jornada = jornadaActivaBloqueada();
 
         if (turnos.findFirstBySesionAtencionAndEstado(sesion, EstadoTurno.LLAMADO).isPresent()) {
@@ -146,6 +149,7 @@ public class TurnoService {
         Turno turno = elegido.get();
         turno.setEstado(EstadoTurno.LLAMADO);
         turno.setHoraLlamado(ahora);
+        turno.setHoraUltimoLlamado(ahora);
         turno.setSesionAtencion(sesion);
         turno.setPuntajeUrgencia(PrioridadTurnos.calcularPuntaje(turno, ahora, bono));
         turnos.save(turno);
@@ -166,6 +170,7 @@ public class TurnoService {
         Turno turno = turnos.findFirstBySesionAtencionAndEstado(sesion, EstadoTurno.LLAMADO)
                 .orElseThrow(() -> new NegocioException("No hay un turno en atención para volver a llamar"));
         turno.setRepeticionesLlamado(turno.getRepeticionesLlamado() + 1);
+        turno.setHoraUltimoLlamado(LocalDateTime.now());
         return turnos.save(turno);
     }
 
@@ -188,6 +193,21 @@ public class TurnoService {
             paciente.setFechaUltimaAtencion(LocalDate.now());
             pacientes.save(paciente);
         }
+
+        ModuloAtencion modulo = sesion.getModulo();
+        modulo.setEstado(EstadoModulo.DISPONIBLE);
+        modulos.save(modulo);
+        return turno;
+    }
+
+    /** CU04 (alternativo): el usuario llamado no se presenta y el personal lo marca como ausente. */
+    @Transactional
+    public Turno marcarAusente(Integer idSesion) {
+        SesionModulo sesion = sesionAbierta(idSesion);
+        Turno turno = turnos.findFirstBySesionAtencionAndEstado(sesion, EstadoTurno.LLAMADO)
+                .orElseThrow(() -> new NegocioException("No hay un turno en atención en este módulo"));
+        turno.setEstado(EstadoTurno.AUSENTE);
+        turnos.save(turno);
 
         ModuloAtencion modulo = sesion.getModulo();
         modulo.setEstado(EstadoModulo.DISPONIBLE);

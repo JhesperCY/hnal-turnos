@@ -70,6 +70,9 @@ public class Turno {
     @Column(nullable = false)
     private Integer repeticionesLlamado = 0;
 
+    /** Hora del llamado mas reciente (el inicial o el ultimo "Volver a llamar"); ordena la pantalla TV. */
+    private LocalDateTime horaUltimoLlamado;
+
     private LocalDateTime horaAtencionFin;
 
     @Column(precision = 8, scale = 2)
@@ -113,6 +116,9 @@ public class Turno {
 
     public Integer getRepeticionesLlamado() { return repeticionesLlamado; }
     public void setRepeticionesLlamado(Integer repeticionesLlamado) { this.repeticionesLlamado = repeticionesLlamado; }
+
+    public LocalDateTime getHoraUltimoLlamado() { return horaUltimoLlamado; }
+    public void setHoraUltimoLlamado(LocalDateTime horaUltimoLlamado) { this.horaUltimoLlamado = horaUltimoLlamado; }
 
     public LocalDateTime getHoraAtencionFin() { return horaAtencionFin; }
     public void setHoraAtencionFin(LocalDateTime horaAtencionFin) { this.horaAtencionFin = horaAtencionFin; }

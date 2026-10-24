@@ -15,11 +15,12 @@ import CY.SGTHNAL.model.SesionModulo;
 import CY.SGTHNAL.model.Turno;
 import CY.SGTHNAL.service.ConsultaColaService;
 import CY.SGTHNAL.service.ConsultaColaService.PanelModuloVista;
+import CY.SGTHNAL.service.IncidenciaService;
 import CY.SGTHNAL.service.NegocioException;
 import CY.SGTHNAL.service.SesionModuloService;
 import CY.SGTHNAL.service.TurnoService;
 
-/** Panel del personal de modulo: elegir modulo, llamar al siguiente y registrar la atencion (CU04, CU05, CU14). */
+/** Panel del personal de modulo (CU04, CU05, CU14): llamar, repetir, completar, ausencia, pausa e incidencias. */
 @Controller
 @RequestMapping("/modulo")
 public class ModuloController {
@@ -27,22 +28,25 @@ public class ModuloController {
     private final TurnoService turnoService;
     private final SesionModuloService sesionService;
     private final ConsultaColaService consulta;
+    private final IncidenciaService incidenciaService;
 
     public ModuloController(TurnoService turnoService, SesionModuloService sesionService,
-            ConsultaColaService consulta) {
+            ConsultaColaService consulta, IncidenciaService incidenciaService) {
         this.turnoService = turnoService;
         this.sesionService = sesionService;
         this.consulta = consulta;
+        this.incidenciaService = incidenciaService;
     }
 
     @GetMapping
     public String panel(Principal principal, Model modelo) {
         Optional<PanelModuloVista> panel = consulta.panelModulo(principal.getName());
         if (panel.isEmpty()) {
-            modelo.addAttribute("libres", sesionService.modulosLibres());
+            modelo.addAttribute("opciones", sesionService.opciones());
             return "modulo/elegir";
         }
         modelo.addAttribute("panel", panel.get());
+        modelo.addAttribute("tiposIncidencia", IncidenciaService.TIPOS);
         return "modulo/panel";
     }
 
@@ -99,11 +103,54 @@ public class ModuloController {
         return "redirect:/modulo";
     }
 
-    @PostMapping("/cerrar-sesion")
-    public String cerrarSesion(Principal principal, RedirectAttributes redirect) {
+    /** El usuario llamado no se presento: se marca ausente y se llama al siguiente. */
+    @PostMapping("/ausente")
+    public String ausente(Principal principal, RedirectAttributes redirect) {
         try {
-            sesionService.cerrarSesion(idSesion(principal));
-            redirect.addFlashAttribute("mensaje", "Sesión de módulo cerrada");
+            Integer idSesion = idSesion(principal);
+            Turno ausente = turnoService.marcarAusente(idSesion);
+            Optional<Turno> siguiente = turnoService.llamarSiguiente(idSesion);
+            String mensaje = "Turno " + ausente.getCodigoTurno() + " marcado como ausente. ";
+            mensaje += siguiente.isPresent()
+                    ? "Turno llamado: " + siguiente.get().getCodigoTurno()
+                    : "No hay más turnos en espera.";
+            redirect.addFlashAttribute("mensaje", mensaje);
+        } catch (NegocioException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/modulo";
+    }
+
+    @PostMapping("/pausar")
+    public String pausar(Principal principal, RedirectAttributes redirect) {
+        try {
+            sesionService.pausar(idSesion(principal));
+            redirect.addFlashAttribute("mensaje", "Módulo en pausa");
+        } catch (NegocioException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/modulo";
+    }
+
+    @PostMapping("/reanudar")
+    public String reanudar(Principal principal, RedirectAttributes redirect) {
+        try {
+            sesionService.reanudar(idSesion(principal));
+            redirect.addFlashAttribute("mensaje", "Módulo disponible");
+        } catch (NegocioException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/modulo";
+    }
+
+    @PostMapping("/incidencia")
+    public String incidencia(@RequestParam String tipo, @RequestParam(required = false) String descripcion,
+            Principal principal, RedirectAttributes redirect) {
+        try {
+            boolean pausado = incidenciaService.reportar(principal.getName(), tipo, descripcion);
+            redirect.addFlashAttribute("mensaje", pausado
+                    ? "Incidencia registrada. El módulo quedó en pausa."
+                    : "Incidencia registrada. El supervisor fue notificado.");
         } catch (NegocioException e) {
             redirect.addFlashAttribute("error", e.getMessage());
         }

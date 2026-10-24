@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: cabecera('Usuarios y módulos')}"></head>
+<body class="admin-bg">
+<header th:replace="~{fragments/base :: navSupervisor('gestion')}"></header>
+
+<div class="container py-4">
+    <div th:if="${mensaje}" class="alert alert-success" role="alert" th:text="${mensaje}"></div>
+    <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
+
+    <div class="hnal-card mb-3">
+        <div class="hnal-flex-between mb-2">
+            <span class="fw-bold"><i class="bi bi-display"></i> Módulos de atención</span>
+            <form th:action="@{/supervisor/modulos/agregar}" method="post" class="m-0">
+                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg"></i> Agregar módulo</button>
+            </form>
+        </div>
+        <p class="small text-muted">Solo el supervisor puede habilitar o quitar módulos de atención disponibles para el personal.</p>
+        <table class="table table-sm align-middle">
+            <thead><tr><th>Módulo</th><th>Estado</th><th>Sesión</th><th></th></tr></thead>
+            <tbody>
+            <tr th:each="m : ${modulosGestion}">
+                <td class="fw-bold" th:text="${m.numero()}">1</td>
+                <td><span class="badge" th:classappend="${m.activo()} ? 'bg-success' : 'bg-secondary'"
+                          th:text="${m.activo()} ? 'Activo' : 'Inactivo'">Activo</span></td>
+                <td th:text="${m.personal() != null} ? ${'En uso por ' + m.personal()} : 'Libre'">Libre</td>
+                <td class="text-end">
+                    <form th:if="${m.activo()}" th:action="@{/supervisor/modulos/{id}/activo(id=${m.idModulo()})}" method="post" class="d-inline m-0"
+                          onsubmit="return confirm('¿Desactivar este módulo? Si tiene personal conectado, su sesión se cerrará.');">
+                        <input type="hidden" name="activo" value="false">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Desactivar</button>
+                    </form>
+                    <form th:unless="${m.activo()}" th:action="@{/supervisor/modulos/{id}/activo(id=${m.idModulo()})}" method="post" class="d-inline m-0">
+                        <input type="hidden" name="activo" value="true">
+                        <button type="submit" class="btn btn-sm btn-outline-success">Activar</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="hnal-card">
+        <div class="fw-bold mb-3"><i class="bi bi-person-badge"></i> Gestión de credenciales</div>
+        <form th:action="@{/supervisor/usuarios/crear}" method="post" class="m-0">
+            <div class="row g-2 mb-3">
+                <div class="col-6 col-md-3"><input name="usuario" class="form-control" placeholder="Usuario" maxlength="40" required autocomplete="off"></div>
+                <div class="col-6 col-md-3"><input name="clave" type="password" class="form-control" placeholder="Contraseña (mín. 6)" minlength="6" maxlength="72" required autocomplete="new-password"></div>
+                <div class="col-6 col-md-3"><input name="nombre" class="form-control" placeholder="Nombre completo" maxlength="150"></div>
+                <div class="col-6 col-md-3">
+                    <select name="rol" class="form-select">
+                        <option value="MODULO">Personal de módulo</option>
+                        <option value="SUPERVISOR">Supervisor</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary mb-3"><i class="bi bi-plus-lg"></i> Agregar usuario</button>
+        </form>
+        <p class="small text-muted">Las cuentas no se borran porque tienen historial: se desactivan. Las contraseñas se guardan cifradas.</p>
+        <table class="table table-sm align-middle">
+            <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+            <tr th:each="u : ${usuariosGestion}">
+                <td class="fw-bold" th:text="${u.usuario()}">usuario</td>
+                <td th:text="${u.nombre() != null} ? ${u.nombre()} : '—'">Nombre</td>
+                <td th:text="${u.rol() == 'SUPERVISOR'} ? 'Supervisor' : 'Personal de módulo'">Rol</td>
+                <td><span class="badge" th:classappend="${u.activo()} ? 'bg-success' : 'bg-secondary'"
+                          th:text="${u.activo()} ? 'Activo' : 'Desactivado'">Activo</span></td>
+                <td class="text-end">
+                    <form th:if="${u.activo()}" th:action="@{/supervisor/usuarios/{id}/activo(id=${u.id()})}" method="post" class="d-inline m-0"
+                          onsubmit="return confirm('¿Desactivar esta cuenta?');">
+                        <input type="hidden" name="activo" value="false">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Desactivar</button>
+                    </form>
+                    <form th:unless="${u.activo()}" th:action="@{/supervisor/usuarios/{id}/activo(id=${u.id()})}" method="post" class="d-inline m-0">
+                        <input type="hidden" name="activo" value="true">
+                        <button type="submit" class="btn btn-sm btn-outline-success">Activar</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>

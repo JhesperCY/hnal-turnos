@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import CY.SGTHNAL.model.Jornada;
+import CY.SGTHNAL.model.ModuloAtencion;
 import CY.SGTHNAL.model.Paciente;
 import CY.SGTHNAL.model.SesionModulo;
 import CY.SGTHNAL.model.Turno;
@@ -27,10 +28,19 @@ public interface TurnoRepository extends JpaRepository<Turno, Integer> {
 
     Optional<Turno> findFirstBySesionAtencionAndEstado(SesionModulo sesion, EstadoTurno estado);
 
-    /** Los ultimos 5 turnos llamados de la jornada, el mas reciente primero (pantalla TV). */
-    List<Turno> findTop5ByJornadaAndHoraLlamadoIsNotNullOrderByHoraLlamadoDescIdTurnoDesc(Jornada jornada);
+    /** Los 5 turnos con llamado mas reciente (inicial o repetido), el mas reciente primero (pantalla TV). */
+    List<Turno> findTop5ByJornadaAndHoraUltimoLlamadoIsNotNullOrderByHoraUltimoLlamadoDescIdTurnoDesc(Jornada jornada);
 
     long countByJornadaAndEstado(Jornada jornada, EstadoTurno estado);
+
+    /** Turnos de un modulo en un estado (atendidos hoy, turno en atencion...). */
+    long countByJornadaAndEstadoAndSesionAtencion_Modulo(Jornada jornada, EstadoTurno estado, ModuloAtencion modulo);
+
+    Optional<Turno> findFirstByJornadaAndEstadoAndSesionAtencion_Modulo(Jornada jornada, EstadoTurno estado, ModuloAtencion modulo);
+
+    @Query("select avg(t.duracionMinutos) from Turno t where t.jornada = :jornada and t.estado = :estado and t.sesionAtencion.modulo = :modulo")
+    Double promedioDuracionModulo(@Param("jornada") Jornada jornada, @Param("estado") EstadoTurno estado,
+            @Param("modulo") ModuloAtencion modulo);
 
     long countByJornadaAndEstadoAndTipoAtencion(Jornada jornada, EstadoTurno estado, TipoAtencion tipoAtencion);
 

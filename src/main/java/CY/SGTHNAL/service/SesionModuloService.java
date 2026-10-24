@@ -23,6 +23,9 @@ import CY.SGTHNAL.repository.UsuarioSistemaRepository;
 @Service
 public class SesionModuloService {
 
+    public record OpcionModulo(Integer idModulo, String numero, boolean enUso) {
+    }
+
     private final SesionModuloRepository sesiones;
     private final ModuloAtencionRepository modulos;
     private final UsuarioSistemaRepository usuarios;
@@ -93,5 +96,66 @@ public class SesionModuloService {
         ModuloAtencion modulo = sesion.getModulo();
         modulo.setEstado(EstadoModulo.DISPONIBLE);
         modulos.save(modulo);
+    }
+
+    /** Todos los modulos activos, marcando los que ya tienen una sesion abierta (pantalla de eleccion). */
+    @Transactional(readOnly = true)
+    public List<OpcionModulo> opciones() {
+        Set<Integer> enUso = sesiones.findByHoraFinIsNull().stream()
+                .map(s -> s.getModulo().getIdModulo())
+                .collect(Collectors.toSet());
+        return modulos.findByActivoTrue().stream()
+                .sorted((a, b) -> Integer.compare(ModuloAdminService.ordenNumerico(a.getNumeroModulo()),
+                        ModuloAdminService.ordenNumerico(b.getNumeroModulo())))
+                .map(m -> new OpcionModulo(m.getIdModulo(), m.getNumeroModulo(), enUso.contains(m.getIdModulo())))
+                .toList();
+    }
+
+    /** Un modulo en pausa no puede llamar turnos. No se puede pausar con un turno en atencion. */
+    @Transactional
+    public void pausar(Integer idSesion) {
+        SesionModulo sesion = abierta(idSesion);
+        if (turnos.findFirstBySesionAtencionAndEstado(sesion, EstadoTurno.LLAMADO).isPresent()) {
+            throw new NegocioException("Registre la atención del turno actual antes de pausar el módulo");
+        }
+        ModuloAtencion modulo = sesion.getModulo();
+        modulo.setEstado(EstadoModulo.PAUSADO);
+        modulos.save(modulo);
+    }
+
+    @Transactional
+    public void reanudar(Integer idSesion) {
+        SesionModulo sesion = abierta(idSesion);
+        ModuloAtencion modulo = sesion.getModulo();
+        modulo.setEstado(EstadoModulo.DISPONIBLE);
+        modulos.save(modulo);
+    }
+
+    /**
+     * Al cerrar la sesion de la aplicacion se libera el modulo, salvo que quede un turno en atencion
+     * (en ese caso la sesion de modulo sigue abierta para que la persona la retome).
+     */
+    @Transactional
+    public void liberarPorLogout(String nombreUsuario) {
+        usuarios.findByNombreUsuario(nombreUsuario)
+                .flatMap(sesiones::findFirstByUsuarioAndHoraFinIsNull)
+                .ifPresent(sesion -> {
+                    if (turnos.findFirstBySesionAtencionAndEstado(sesion, EstadoTurno.LLAMADO).isEmpty()) {
+                        sesion.setHoraFin(LocalDateTime.now());
+                        sesiones.save(sesion);
+                        ModuloAtencion modulo = sesion.getModulo();
+                        modulo.setEstado(EstadoModulo.DISPONIBLE);
+                        modulos.save(modulo);
+                    }
+                });
+    }
+
+    private SesionModulo abierta(Integer idSesion) {
+        SesionModulo sesion = sesiones.findById(idSesion)
+                .orElseThrow(() -> new NegocioException("La sesión del módulo no existe"));
+        if (sesion.getHoraFin() != null) {
+            throw new NegocioException("La sesión del módulo ya está cerrada");
+        }
+        return sesion;
     }
 }

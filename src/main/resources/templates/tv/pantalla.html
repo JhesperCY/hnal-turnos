@@ -1,192 +1,69 @@
 <!DOCTYPE html>
 <html lang="es" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/base :: cabecera('Pantalla de turnos')}"></head>
-<body class="tv">
-<style>
-    html, body { height: 100%; }
-    body.tv { background: #0b2a3a; color: #fff; margin: 0; overflow-x: hidden; }
-    .cabecera { display: flex; justify-content: space-between; align-items: center; padding: 1rem 2rem; background: #0a1f2b; }
-    .cabecera .hospital { font-size: 1.6rem; font-weight: 600; }
-    .cabecera .reloj { font-size: 2.2rem; font-variant-numeric: tabular-nums; }
-    .contenedor { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; padding: 1.5rem 2rem 4rem; min-height: calc(100% - 5rem); }
-    .principal { background: #0f6f8f; border-radius: 1.5rem; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 1rem; }
-    .principal.preferencial { background: #d9730d; }
-    .principal .etiqueta { font-size: 2rem; letter-spacing: .3rem; opacity: .9; }
-    .principal .codigo { font-size: 14rem; font-weight: 800; line-height: 1; }
-    .principal .modulo { font-size: 5rem; font-weight: 700; }
-    .principal .tipo { font-size: 2rem; margin-top: .5rem; }
-    .lateral { background: #12394d; border-radius: 1.5rem; padding: 1.5rem; display: flex; flex-direction: column; }
-    .lateral h2 { font-size: 1.6rem; margin-bottom: 1rem; }
-    #lista { list-style: none; padding: 0; margin: 0; }
-    #lista li { display: flex; justify-content: space-between; font-size: 2rem; padding: .6rem 0; border-bottom: 1px solid rgba(255, 255, 255, .15); }
-    .conteo { margin-top: auto; font-size: 1.5rem; padding-top: 1rem; }
-    .pie { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; padding: .5rem; font-size: 1.2rem; background: #0a1f2b; }
-    .sin-conexion { color: #ffc107; }
-    .overlay { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0, 0, 0, .85); z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }
-    .parpadeo { animation: parpadeo 1s ease-in-out 3; }
-    @keyframes parpadeo { 50% { opacity: .3; } }
-    @media (max-width: 900px) {
-        .contenedor { grid-template-columns: 1fr; }
-        .principal .codigo { font-size: 7rem; }
-        .principal .modulo { font-size: 3rem; }
-    }
-</style>
+<head th:replace="~{fragments/base :: cabecera('Sala de espera')}"></head>
+<body class="tv-bg">
 
-<div id="activar" class="overlay">
-    <p class="fs-3">Pantalla de turnos</p>
-    <button id="btnActivar" type="button" class="btn btn-warning btn-lg px-5 py-3 fs-3">Activar audio</button>
-    <p class="text-white-50">Un solo clic al encender la pantalla: despues cada llamado se anuncia solo.</p>
+<div id="overlay-cerrado" class="overlay-cerrado d-none">
+    <i class="bi bi-moon-stars"></i>
+    <h2>No hay atención en este momento</h2>
+    <p class="text-white-50">La jornada de atención ha finalizado. Gracias por su visita.</p>
 </div>
 
-<header class="cabecera">
-    <div class="hospital">Hospital Nacional Arzobispo Loayza</div>
-    <div class="reloj" id="reloj">--:--</div>
-</header>
+<div id="overlay-audio" class="overlay-cerrado">
+    <i class="bi bi-volume-up"></i>
+    <h2>Pantalla de turnos</h2>
+    <button id="btn-audio" type="button" class="btn btn-warning btn-lg px-5 mt-3">Activar audio</button>
+    <p class="text-white-50 mt-3">Un solo clic al encender la pantalla: después cada llamado se anuncia solo.</p>
+</div>
 
-<main class="contenedor">
-    <section class="principal" id="principal">
-        <div class="etiqueta">TURNO EN ATENCIÓN</div>
-        <div class="codigo" id="codigo">---</div>
-        <div class="modulo" id="modulo"></div>
-        <div class="tipo" id="tipo"></div>
-    </section>
-    <aside class="lateral">
-        <h2>Últimos llamados</h2>
-        <ul id="lista"></ul>
-        <div class="conteo" id="conteo"></div>
-    </aside>
-</main>
+<div class="container-fluid py-4 px-4 d-flex flex-column justify-content-center" style="min-height: 100vh;">
+    <div class="hnal-flex-between mb-4">
+        <div>
+            <div class="fs-4 fw-bold">Hospital Nacional Arzobispo Loayza</div>
+            <small class="text-white-50">Sala de espera · Sistema de Gestión de Turnos</small>
+        </div>
+        <div class="text-end">
+            <div class="fs-3 tv-reloj" id="reloj"></div>
+            <small class="text-white-50" id="fecha"></small>
+        </div>
+    </div>
 
-<footer class="pie" id="pie">Conectando...</footer>
+    <div class="tv-llamado text-center p-4 mb-4" id="card-llamado">
+        <small class="text-uppercase fw-bold" id="llamado-tipo">Esperando turnos...</small>
+        <div class="tv-codigo" id="llamado-codigo">—</div>
+        <div id="llamado-modulo"></div>
+    </div>
 
-<script>
-    (function () {
-        var audioActivo = false;
-        var primeraCarga = true;
-        var ultimaClave = null;
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="hnal-card bg-transparent border border-light text-white">
+                <div><i class="bi bi-person"></i> Cola General</div>
+                <div class="display-5 fw-bold" id="total-general">0</div>
+                <small class="text-white-50">personas esperando</small>
+                <div id="lista-general" class="mt-2 small"></div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="hnal-card bg-transparent border border-light text-white">
+                <div><i class="bi bi-universal-access-circle"></i> Cola Preferencial</div>
+                <div class="display-5 fw-bold" id="total-preferencial">0</div>
+                <small class="text-white-50">personas esperando</small>
+                <div id="lista-preferencial" class="mt-2 small"></div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="hnal-card bg-transparent border border-light text-white">
+                <div><i class="bi bi-check2-circle"></i> Últimos llamados</div>
+                <div id="lista-llamados" class="mt-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
 
-        function etiquetaTipo(tipo) {
-            return tipo === 'PREFERENCIAL' ? 'Preferencial' : 'General';
-        }
+<div id="sin-conexion" class="position-fixed bottom-0 start-0 end-0 text-center py-1 bg-warning text-dark d-none">
+    Sin conexión con el sistema. Reintentando...
+</div>
 
-        function campanilla() {
-            try {
-                var ctx = new (window.AudioContext || window.webkitAudioContext)();
-                var tonos = [880, 660];
-                tonos.forEach(function (frecuencia, i) {
-                    var osc = ctx.createOscillator();
-                    var gain = ctx.createGain();
-                    osc.frequency.value = frecuencia;
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    var t0 = ctx.currentTime + i * 0.35;
-                    gain.gain.setValueAtTime(0.0001, t0);
-                    gain.gain.exponentialRampToValueAtTime(0.4, t0 + 0.05);
-                    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.33);
-                    osc.start(t0);
-                    osc.stop(t0 + 0.35);
-                });
-            } catch (e) { /* sin audio disponible */ }
-        }
-
-        function hablar(texto) {
-            if (!('speechSynthesis' in window)) { return; }
-            var enunciado = new SpeechSynthesisUtterance(texto);
-            var voces = window.speechSynthesis.getVoices();
-            var voz = voces.find(function (v) { return v.lang && v.lang.toLowerCase().indexOf('es') === 0; });
-            if (voz) { enunciado.voice = voz; enunciado.lang = voz.lang; } else { enunciado.lang = 'es-ES'; }
-            enunciado.rate = 0.9;
-            window.speechSynthesis.cancel();
-            window.speechSynthesis.speak(enunciado);
-        }
-
-        function anunciar(llamado) {
-            if (!audioActivo || !llamado) { return; }
-            var numero = parseInt(llamado.codigo.split('-')[1], 10);
-            var texto = 'Turno ' + etiquetaTipo(llamado.tipo).toLowerCase() + ' ' + numero + ', módulo ' + llamado.modulo;
-            campanilla();
-            setTimeout(function () { hablar(texto); }, 800);
-        }
-
-        function pintar(estado) {
-            var principal = document.getElementById('principal');
-            var ultimo = estado.ultimo;
-            document.getElementById('codigo').textContent = ultimo ? ultimo.codigo : '---';
-            document.getElementById('modulo').textContent = ultimo ? 'MÓDULO ' + ultimo.modulo : '';
-            document.getElementById('tipo').textContent = !estado.jornadaActiva
-                ? 'Servicio no disponible por el momento'
-                : (ultimo ? (ultimo.tipo === 'PREFERENCIAL' ? 'Atención preferencial' : '') : 'Esperando el primer llamado');
-            principal.className = 'principal' + (ultimo && ultimo.tipo === 'PREFERENCIAL' ? ' preferencial' : '');
-
-            var lista = document.getElementById('lista');
-            lista.textContent = '';
-            estado.ultimos.slice(1).forEach(function (llamado) {
-                var item = document.createElement('li');
-                var codigo = document.createElement('span');
-                var modulo = document.createElement('span');
-                codigo.textContent = llamado.codigo;
-                modulo.textContent = 'Módulo ' + llamado.modulo;
-                item.appendChild(codigo);
-                item.appendChild(modulo);
-                lista.appendChild(item);
-            });
-
-            document.getElementById('conteo').textContent =
-                'En espera: ' + estado.enEsperaGeneral + ' generales, ' + estado.enEsperaPreferencial + ' preferenciales';
-        }
-
-        function procesar(estado) {
-            pintar(estado);
-            var clave = estado.ultimo ? estado.ultimo.idTurno + '|' + estado.ultimo.horaLlamado + '|' + estado.ultimo.repeticiones : null;
-            if (clave !== ultimaClave) {
-                if (!primeraCarga && clave !== null) {
-                    anunciar(estado.ultimo);
-                    var principal = document.getElementById('principal');
-                    principal.classList.remove('parpadeo');
-                    void principal.offsetWidth;
-                    principal.classList.add('parpadeo');
-                }
-                ultimaClave = clave;
-            }
-            primeraCarga = false;
-        }
-
-        function mostrarConexion(ok) {
-            var pie = document.getElementById('pie');
-            pie.textContent = ok ? 'Pase al módulo indicado cuando escuche o vea su turno.'
-                                 : 'Sin conexión con el sistema. Reintentando...';
-            pie.className = 'pie' + (ok ? '' : ' sin-conexion');
-        }
-
-        function consultar() {
-            fetch('/tv/estado', { cache: 'no-store' })
-                .then(function (respuesta) {
-                    if (!respuesta.ok) { throw new Error('estado ' + respuesta.status); }
-                    return respuesta.json();
-                })
-                .then(function (estado) { mostrarConexion(true); procesar(estado); })
-                .catch(function () { mostrarConexion(false); });
-        }
-
-        function actualizarReloj() {
-            document.getElementById('reloj').textContent =
-                new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-        }
-
-        document.getElementById('btnActivar').addEventListener('click', function () {
-            audioActivo = true;
-            document.getElementById('activar').style.display = 'none';
-            hablar('Audio activado');
-        });
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.onvoiceschanged = function () { window.speechSynthesis.getVoices(); };
-        }
-
-        actualizarReloj();
-        setInterval(actualizarReloj, 1000);
-        consultar();
-        setInterval(consultar, 2000);
-    })();
-</script>
+<script th:src="@{/js/tv.js}"></script>
 </body>
 </html>

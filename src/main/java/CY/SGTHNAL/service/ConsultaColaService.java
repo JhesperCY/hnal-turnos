@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -14,16 +15,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import CY.SGTHNAL.model.Jornada;
+import CY.SGTHNAL.model.ModuloAtencion;
+import CY.SGTHNAL.model.Paciente;
 import CY.SGTHNAL.model.SesionModulo;
 import CY.SGTHNAL.model.Turno;
+import CY.SGTHNAL.model.enums.EstadoIncidencia;
 import CY.SGTHNAL.model.enums.EstadoJornada;
 import CY.SGTHNAL.model.enums.EstadoModulo;
 import CY.SGTHNAL.model.enums.EstadoNotificacion;
 import CY.SGTHNAL.model.enums.EstadoTurno;
 import CY.SGTHNAL.model.enums.TipoAtencion;
+import CY.SGTHNAL.repository.IncidenciaRepository;
 import CY.SGTHNAL.repository.JornadaRepository;
 import CY.SGTHNAL.repository.ModuloAtencionRepository;
 import CY.SGTHNAL.repository.NotificacionRepository;
+import CY.SGTHNAL.repository.PacienteRepository;
 import CY.SGTHNAL.repository.SesionModuloRepository;
 import CY.SGTHNAL.repository.TurnoRepository;
 import CY.SGTHNAL.repository.UsuarioSistemaRepository;
@@ -36,7 +42,14 @@ import CY.SGTHNAL.repository.UsuarioSistemaRepository;
 @Transactional(readOnly = true)
 public class ConsultaColaService {
 
-    public record TicketVista(Integer idTurno, String codigo, TipoAtencion tipo, LocalDateTime horaRegistro, long enEspera) {
+    private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm:ss");
+
+    public record TicketVista(Integer idTurno, String codigo, TipoAtencion tipo, LocalDateTime horaRegistro, long enEspera,
+            int posicion, long graciaMinutos) {
+    }
+
+    /** estado: EN_ESPERA, LLAMADO o NO_ENCONTRADO. modulo solo viene cuando el turno ya fue llamado. */
+    public record ReimpresionVista(String estado, TicketVista ticket, String modulo) {
     }
 
     public record FilaEspera(String codigo, TipoAtencion tipo, long minutosEspera, BigDecimal puntaje) {
@@ -49,19 +62,22 @@ public class ConsultaColaService {
     public record JornadaVista(LocalDate fecha, LocalDateTime horaApertura) {
     }
 
-    public record ModuloVista(Integer idModulo, String numero, EstadoModulo estado, boolean activo, String personal) {
+    public record ModuloVista(Integer idModulo, String numero, EstadoModulo estado, boolean activo, String personal,
+            String turnoActivo, long atendidosHoy, Double promedioMin) {
     }
 
-    public record TurnoActualVista(Integer idTurno, String codigo, TipoAtencion tipo, long minutosDesdeLlamado,
-            long graciaMinutos) {
+    public record TurnoActualVista(Integer idTurno, String codigo, TipoAtencion tipo, String horaLlamado,
+            long minutosDesdeLlamado, long graciaMinutos) {
     }
 
-    public record PanelModuloVista(Integer idSesion, String numeroModulo, TurnoActualVista actual,
-            boolean jornadaActiva, long enEspera, List<FilaEspera> proximos) {
+    public record PanelModuloVista(Integer idSesion, String numeroModulo, boolean pausado, long atendidosHoy,
+            Double promedioMin, TurnoActualVista actual, boolean jornadaActiva, long enEspera, BigDecimal bono,
+            List<FilaEspera> proximos) {
     }
 
     public record PanelSupervisorVista(JornadaVista jornada, ResumenCola resumen, List<FilaEspera> cola,
-            List<ModuloVista> modulos) {
+            List<ModuloVista> modulos, BigDecimal bono, long incidenciasPendientes, long modulosDisponibles,
+            long modulosTotales) {
     }
 
     private final TurnoRepository turnos;
@@ -71,10 +87,13 @@ public class ConsultaColaService {
     private final UsuarioSistemaRepository usuarios;
     private final NotificacionRepository notificaciones;
     private final TurnoService turnoService;
+    private final PacienteRepository pacientes;
+    private final IncidenciaRepository incidencias;
 
     public ConsultaColaService(TurnoRepository turnos, JornadaRepository jornadas, SesionModuloRepository sesiones,
             ModuloAtencionRepository modulos, UsuarioSistemaRepository usuarios,
-            NotificacionRepository notificaciones, TurnoService turnoService) {
+            NotificacionRepository notificaciones, TurnoService turnoService, PacienteRepository pacientes,
+            IncidenciaRepository incidencias) {
         this.turnos = turnos;
         this.jornadas = jornadas;
         this.sesiones = sesiones;
@@ -82,6 +101,8 @@ public class ConsultaColaService {
         this.usuarios = usuarios;
         this.notificaciones = notificaciones;
         this.turnoService = turnoService;
+        this.pacientes = pacientes;
+        this.incidencias = incidencias;
     }
 
     public boolean hayJornadaActiva() {
@@ -89,20 +110,56 @@ public class ConsultaColaService {
     }
 
     public Optional<TicketVista> ticket(Integer idTurno) {
-        return turnos.findById(idTurno).map(t -> new TicketVista(t.getIdTurno(), t.getCodigoTurno(),
-                t.getTipoAtencion(), t.getHoraRegistro(),
-                turnos.countByJornadaAndEstado(t.getJornada(), EstadoTurno.EN_ESPERA)));
+        return turnos.findById(idTurno).map(this::ticketDe);
+    }
+
+    /** CU02: busca el turno activo (en espera o ya llamado) de quien escribe su numero de documento. */
+    public ReimpresionVista reimpresion(String numeroDocumento) {
+        Optional<Jornada> activa = jornadas.findFirstByEstado(EstadoJornada.ACTIVA);
+        if (activa.isEmpty() || numeroDocumento == null) {
+            return new ReimpresionVista("NO_ENCONTRADO", null, null);
+        }
+        List<EstadoTurno> activos = List.of(EstadoTurno.EN_ESPERA, EstadoTurno.LLAMADO);
+        for (Paciente paciente : pacientes.findByNumeroDocumento(numeroDocumento.trim())) {
+            Optional<Turno> turno = turnos.findFirstByJornadaAndPacienteAndEstadoIn(activa.get(), paciente, activos);
+            if (turno.isPresent()) {
+                Turno t = turno.get();
+                String modulo = t.getEstado() == EstadoTurno.LLAMADO && t.getSesionAtencion() != null
+                        ? t.getSesionAtencion().getModulo().getNumeroModulo() : null;
+                return new ReimpresionVista(t.getEstado().name(), ticketDe(t), modulo);
+            }
+        }
+        return new ReimpresionVista("NO_ENCONTRADO", null, null);
+    }
+
+    private TicketVista ticketDe(Turno turno) {
+        List<FilaEspera> cola = filasEnEspera(turno.getJornada());
+        int posicion = 0;
+        for (int i = 0; i < cola.size(); i++) {
+            if (cola.get(i).codigo().equals(turno.getCodigoTurno())) {
+                posicion = i + 1;
+                break;
+            }
+        }
+        long gracia = PrioridadTurnos.duracionGracia(turno.getTipoAtencion(), false).toMinutes();
+        return new TicketVista(turno.getIdTurno(), turno.getCodigoTurno(), turno.getTipoAtencion(),
+                turno.getHoraRegistro(), cola.size(), posicion, gracia);
     }
 
     public PanelSupervisorVista panelSupervisor() {
         Optional<Jornada> activa = jornadas.findFirstByEstado(EstadoJornada.ACTIVA);
-        List<ModuloVista> listaModulos = modulosVista();
+        List<ModuloVista> listaModulos = modulosVista(activa.orElse(null));
+        long disponibles = listaModulos.stream()
+                .filter(m -> m.activo() && m.personal() != null && m.estado() == EstadoModulo.DISPONIBLE).count();
+        long pendientes = incidencias.countByEstado(EstadoIncidencia.PENDIENTE);
         if (activa.isEmpty()) {
-            return new PanelSupervisorVista(null, null, List.of(), listaModulos);
+            return new PanelSupervisorVista(null, null, List.of(), listaModulos, BigDecimal.ZERO, pendientes,
+                    disponibles, listaModulos.size());
         }
         Jornada jornada = activa.get();
         return new PanelSupervisorVista(new JornadaVista(jornada.getFecha(), jornada.getHoraApertura()),
-                resumen(jornada), filasEnEspera(jornada), listaModulos);
+                resumen(jornada), filasEnEspera(jornada), listaModulos, turnoService.bonoPreferencial(jornada),
+                pendientes, disponibles, listaModulos.size());
     }
 
     public Optional<PanelModuloVista> panelModulo(String nombreUsuario) {
@@ -112,6 +169,7 @@ public class ConsultaColaService {
             return Optional.empty();
         }
         SesionModulo sesion = opcion.get();
+        ModuloAtencion modulo = sesion.getModulo();
         Optional<Jornada> activa = jornadas.findFirstByEstado(EstadoJornada.ACTIVA);
         LocalDateTime ahora = LocalDateTime.now();
 
@@ -119,16 +177,21 @@ public class ConsultaColaService {
                 .map(t -> turnoActual(t, ahora))
                 .orElse(null);
         List<FilaEspera> cola = activa.map(this::filasEnEspera).orElse(List.of());
+        long atendidos = activa.map(j -> turnos.countByJornadaAndEstadoAndSesionAtencion_Modulo(j, EstadoTurno.ATENDIDO, modulo)).orElse(0L);
+        Double promedio = activa.map(j -> turnos.promedioDuracionModulo(j, EstadoTurno.ATENDIDO, modulo)).orElse(null);
+        BigDecimal bono = activa.map(turnoService::bonoPreferencial).orElse(BigDecimal.ZERO);
 
-        return Optional.of(new PanelModuloVista(sesion.getIdSesion(), sesion.getModulo().getNumeroModulo(), actual,
-                activa.isPresent(), cola.size(), cola.stream().limit(5).toList()));
+        return Optional.of(new PanelModuloVista(sesion.getIdSesion(), modulo.getNumeroModulo(),
+                modulo.getEstado() == EstadoModulo.PAUSADO, atendidos, promedio, actual, activa.isPresent(),
+                cola.size(), bono, cola.stream().limit(5).toList()));
     }
 
     private TurnoActualVista turnoActual(Turno turno, LocalDateTime ahora) {
         long minutos = turno.getHoraLlamado() == null ? 0 : Duration.between(turno.getHoraLlamado(), ahora).toMinutes();
         boolean confirmo = notificaciones.existsByTurnoAndEstado(turno, EstadoNotificacion.CONFIRMADO);
         long gracia = PrioridadTurnos.duracionGracia(turno.getTipoAtencion(), confirmo).toMinutes();
-        return new TurnoActualVista(turno.getIdTurno(), turno.getCodigoTurno(), turno.getTipoAtencion(), minutos, gracia);
+        String hora = turno.getHoraLlamado() == null ? "-" : turno.getHoraLlamado().format(HORA);
+        return new TurnoActualVista(turno.getIdTurno(), turno.getCodigoTurno(), turno.getTipoAtencion(), hora, minutos, gracia);
     }
 
     private ResumenCola resumen(Jornada jornada) {
@@ -154,7 +217,7 @@ public class ConsultaColaService {
                 .toList();
     }
 
-    private List<ModuloVista> modulosVista() {
+    private List<ModuloVista> modulosVista(Jornada jornada) {
         Map<Integer, String> personal = new HashMap<>();
         for (SesionModulo s : sesiones.findByHoraFinIsNull()) {
             String nombre = s.getUsuario().getNombreCompleto() != null && !s.getUsuario().getNombreCompleto().isBlank()
@@ -162,9 +225,22 @@ public class ConsultaColaService {
             personal.put(s.getModulo().getIdModulo(), nombre);
         }
         return modulos.findAll().stream()
-                .sorted((a, b) -> a.getNumeroModulo().compareTo(b.getNumeroModulo()))
-                .map(m -> new ModuloVista(m.getIdModulo(), m.getNumeroModulo(), m.getEstado(),
-                        Boolean.TRUE.equals(m.getActivo()), personal.get(m.getIdModulo())))
+                .sorted((a, b) -> Integer.compare(ModuloAdminService.ordenNumerico(a.getNumeroModulo()),
+                        ModuloAdminService.ordenNumerico(b.getNumeroModulo())))
+                .map(m -> {
+                    String turnoActivo = null;
+                    long atendidos = 0;
+                    Double promedio = null;
+                    if (jornada != null) {
+                        turnoActivo = turnos.findFirstByJornadaAndEstadoAndSesionAtencion_Modulo(jornada, EstadoTurno.LLAMADO, m)
+                                .map(Turno::getCodigoTurno).orElse(null);
+                        atendidos = turnos.countByJornadaAndEstadoAndSesionAtencion_Modulo(jornada, EstadoTurno.ATENDIDO, m);
+                        promedio = turnos.promedioDuracionModulo(jornada, EstadoTurno.ATENDIDO, m);
+                    }
+                    return new ModuloVista(m.getIdModulo(), m.getNumeroModulo(), m.getEstado(),
+                            Boolean.TRUE.equals(m.getActivo()), personal.get(m.getIdModulo()), turnoActivo,
+                            atendidos, promedio);
+                })
                 .toList();
     }
 }

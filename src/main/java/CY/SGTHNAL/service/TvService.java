@@ -19,12 +19,16 @@ import CY.SGTHNAL.repository.TurnoRepository;
 @Transactional(readOnly = true)
 public class TvService {
 
-    public record LlamadoVista(Integer idTurno, String codigo, String modulo, String tipo, String horaLlamado,
-            int repeticiones) {
+    public record LlamadoVista(Integer idTurno, String codigo, String modulo, String tipo, String estado,
+            String horaUltimoLlamado) {
     }
 
-    public record TvVista(boolean jornadaActiva, LlamadoVista ultimo, List<LlamadoVista> ultimos,
-            long enEsperaGeneral, long enEsperaPreferencial) {
+    /**
+     * actual: el turno llamado (aun en atencion) con el llamado mas reciente, o null si nadie esta siendo llamado.
+     * recientes: hasta 5 turnos con llamado reciente. generales / preferenciales: los 3 primeros codigos en espera.
+     */
+    public record TvVista(boolean jornadaActiva, LlamadoVista actual, List<LlamadoVista> recientes,
+            List<String> generales, long totalGenerales, List<String> preferenciales, long totalPreferenciales) {
     }
 
     private final TurnoRepository turnos;
@@ -38,23 +42,32 @@ public class TvService {
     public TvVista estado() {
         Optional<Jornada> activa = jornadas.findFirstByEstado(EstadoJornada.ACTIVA);
         if (activa.isEmpty()) {
-            return new TvVista(false, null, List.of(), 0, 0);
+            return new TvVista(false, null, List.of(), List.of(), 0, List.of(), 0);
         }
         Jornada jornada = activa.get();
-        List<LlamadoVista> ultimos = turnos
-                .findTop5ByJornadaAndHoraLlamadoIsNotNullOrderByHoraLlamadoDescIdTurnoDesc(jornada)
+
+        List<LlamadoVista> recientes = turnos
+                .findTop5ByJornadaAndHoraUltimoLlamadoIsNotNullOrderByHoraUltimoLlamadoDescIdTurnoDesc(jornada)
                 .stream().map(this::vista).toList();
-        return new TvVista(true,
-                ultimos.isEmpty() ? null : ultimos.get(0),
-                ultimos,
-                turnos.countByJornadaAndEstadoAndTipoAtencion(jornada, EstadoTurno.EN_ESPERA, TipoAtencion.GENERAL),
-                turnos.countByJornadaAndEstadoAndTipoAtencion(jornada, EstadoTurno.EN_ESPERA, TipoAtencion.PREFERENCIAL));
+        LlamadoVista actual = recientes.stream()
+                .filter(l -> EstadoTurno.LLAMADO.name().equals(l.estado()))
+                .findFirst().orElse(null);
+
+        List<Turno> enEspera = turnos.findByJornadaAndEstadoOrderByHoraRegistroAscIdTurnoAsc(jornada, EstadoTurno.EN_ESPERA);
+        List<String> generales = enEspera.stream()
+                .filter(t -> t.getTipoAtencion() == TipoAtencion.GENERAL).map(Turno::getCodigoTurno).toList();
+        List<String> preferenciales = enEspera.stream()
+                .filter(t -> t.getTipoAtencion() == TipoAtencion.PREFERENCIAL).map(Turno::getCodigoTurno).toList();
+
+        return new TvVista(true, actual, recientes,
+                generales.stream().limit(3).toList(), generales.size(),
+                preferenciales.stream().limit(3).toList(), preferenciales.size());
     }
 
     private LlamadoVista vista(Turno turno) {
         String modulo = turno.getSesionAtencion() != null
                 ? turno.getSesionAtencion().getModulo().getNumeroModulo() : "-";
-        return new LlamadoVista(turno.getIdTurno(), turno.getCodigoTurno(), modulo,
-                turno.getTipoAtencion().name(), turno.getHoraLlamado().toString(), turno.getRepeticionesLlamado());
+        return new LlamadoVista(turno.getIdTurno(), turno.getCodigoTurno(), modulo, turno.getTipoAtencion().name(),
+                turno.getEstado().name(), turno.getHoraUltimoLlamado().toString());
     }
 }

@@ -1,25 +1,41 @@
 <!DOCTYPE html>
 <html lang="es" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/base :: cabecera('Elegir módulo')}"></head>
-<body class="bg-light">
-<nav th:replace="~{fragments/base :: barra('Personal de módulo')}"></nav>
-<main class="container" style="max-width: 40rem;">
+<body class="modulo-bg">
+<div class="container py-4" style="max-width: 760px;">
+
     <div th:if="${mensaje}" class="alert alert-success" role="alert" th:text="${mensaje}"></div>
     <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
 
-    <div class="card card-body shadow-sm text-center">
-        <h1 class="h4 mb-3">¿En qué módulo va a trabajar?</h1>
-        <div>
-            <form th:each="m : ${libres}" th:action="@{/modulo/iniciar}" method="post" class="d-inline">
-                <input type="hidden" name="idModulo" th:value="${m.idModulo}">
-                <button type="submit" class="btn btn-outline-primary btn-lg m-1"
-                        th:text="'Módulo ' + ${m.numeroModulo}">Módulo 1</button>
+    <div class="hnal-card text-center mb-4">
+        <div class="hnal-flex-between mb-2">
+            <small class="text-muted" th:text="'Sesión: ' + ${usuarioActual}">Sesión</small>
+            <form th:action="@{/logout}" method="post" class="m-0">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Cerrar sesión</button>
             </form>
         </div>
-        <p th:if="${#lists.isEmpty(libres)}" class="text-muted mb-0">
-            No hay módulos libres. Consulte con el supervisor.
-        </p>
+        <h5 class="mb-1">Seleccione su módulo de atención</h5>
+        <p class="small text-muted mb-3">Un módulo solo puede estar activo en una sesión a la vez. El número de módulos disponibles lo define el supervisor desde el Panel de Admin.</p>
+        <div class="modulo-select-grid">
+            <th:block th:each="o : ${opciones}">
+                <form th:unless="${o.enUso()}" th:action="@{/modulo/iniciar}" method="post" class="m-0">
+                    <input type="hidden" name="idModulo" th:value="${o.idModulo()}">
+                    <button type="submit" class="modulo-select-card border-0 w-100">
+                        <i class="bi bi-display fs-3 d-block"></i>
+                        <div class="fw-bold" th:text="'Módulo ' + ${o.numero()}">Módulo 1</div>
+                        <small class="text-success">Disponible</small>
+                    </button>
+                </form>
+                <div th:if="${o.enUso()}" class="modulo-select-card ocupado opacity-50">
+                    <i class="bi bi-display fs-3 d-block"></i>
+                    <div class="fw-bold" th:text="'Módulo ' + ${o.numero()}">Módulo 1</div>
+                    <small class="text-danger">En uso</small>
+                </div>
+            </th:block>
+        </div>
+        <p th:if="${#lists.isEmpty(opciones)}" class="text-muted mb-0">No hay módulos activos. Consulte con el supervisor.</p>
     </div>
-</main>
+
+</div>
 </body>
 </html>
