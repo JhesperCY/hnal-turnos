@@ -46,6 +46,9 @@ public interface TurnoRepository extends JpaRepository<Turno, Integer> {
 
     long countByJornada(Jornada jornada);
 
+    /** Todos los turnos de la jornada (calculo de reportes y detalle del Excel). */
+    List<Turno> findByJornada(Jornada jornada);
+
     long countByJornadaAndTipoAtencion(Jornada jornada, TipoAtencion tipoAtencion);
 
     /** Promedio real de minutos de atencion de la jornada (null si todavia no hay atendidos). */

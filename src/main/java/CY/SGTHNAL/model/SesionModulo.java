@@ -2,8 +2,10 @@ package CY.SGTHNAL.model;
 
 import java.time.LocalDateTime;
 
+import CY.SGTHNAL.config.NotificadorCambios;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -14,6 +16,7 @@ import jakarta.persistence.Table;
 
 /** Sesion de trabajo de un usuario en un modulo; horaFin null = sesion activa (CU14). */
 @Entity
+@EntityListeners(NotificadorCambios.class)
 @Table(name = "sesion_modulo")
 public class SesionModulo {
 

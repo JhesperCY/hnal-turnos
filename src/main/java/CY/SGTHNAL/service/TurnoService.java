@@ -169,8 +169,24 @@ public class TurnoService {
         SesionModulo sesion = sesionAbierta(idSesion);
         Turno turno = turnos.findFirstBySesionAtencionAndEstado(sesion, EstadoTurno.LLAMADO)
                 .orElseThrow(() -> new NegocioException("No hay un turno en atención para volver a llamar"));
+        if (turno.getHoraInicioAtencion() != null) {
+            throw new NegocioException("El usuario ya está en atención: no hace falta volver a llamarlo");
+        }
         turno.setRepeticionesLlamado(turno.getRepeticionesLlamado() + 1);
         turno.setHoraUltimoLlamado(LocalDateTime.now());
+        return turnos.save(turno);
+    }
+
+    /** El usuario llamado se presento: se inicia su atencion y deja de correr el tiempo de gracia (CU07 4a-4c). */
+    @Transactional
+    public Turno iniciarAtencion(Integer idSesion) {
+        SesionModulo sesion = sesionAbierta(idSesion);
+        Turno turno = turnos.findFirstBySesionAtencionAndEstado(sesion, EstadoTurno.LLAMADO)
+                .orElseThrow(() -> new NegocioException("No hay un turno llamado en este módulo"));
+        if (turno.getHoraInicioAtencion() != null) {
+            throw new NegocioException("La atención de este turno ya fue iniciada");
+        }
+        turno.setHoraInicioAtencion(LocalDateTime.now());
         return turnos.save(turno);
     }
 
@@ -184,7 +200,9 @@ public class TurnoService {
         LocalDateTime ahora = LocalDateTime.now();
         turno.setEstado(EstadoTurno.ATENDIDO);
         turno.setHoraAtencionFin(ahora);
-        turno.setDuracionMinutos(minutosEntre(turno.getHoraLlamado(), ahora));
+        // La duracion cuenta desde que se inicio la atencion; si no se inicio, desde el llamado
+        turno.setDuracionMinutos(minutosEntre(
+                turno.getHoraInicioAtencion() != null ? turno.getHoraInicioAtencion() : turno.getHoraLlamado(), ahora));
         turnos.save(turno);
 
         Paciente paciente = turno.getPaciente();
@@ -206,6 +224,9 @@ public class TurnoService {
         SesionModulo sesion = sesionAbierta(idSesion);
         Turno turno = turnos.findFirstBySesionAtencionAndEstado(sesion, EstadoTurno.LLAMADO)
                 .orElseThrow(() -> new NegocioException("No hay un turno en atención en este módulo"));
+        if (turno.getHoraInicioAtencion() != null) {
+            throw new NegocioException("El usuario ya está en atención. Use «Atención completada» al terminar");
+        }
         turno.setEstado(EstadoTurno.AUSENTE);
         turnos.save(turno);
 
@@ -228,7 +249,8 @@ public class TurnoService {
         List<Turno> llamados = turnos.findByJornadaAndEstadoOrderByHoraRegistroAscIdTurnoAsc(activa.get(), EstadoTurno.LLAMADO);
         int marcados = 0;
         for (Turno turno : llamados) {
-            if (turno.getHoraLlamado() == null) {
+            // Si el usuario ya se presento y esta en atencion, el tiempo de gracia no corre
+            if (turno.getHoraLlamado() == null || turno.getHoraInicioAtencion() != null) {
                 continue;
             }
             boolean confirmo = notificaciones.existsByTurnoAndEstado(turno, EstadoNotificacion.CONFIRMADO);

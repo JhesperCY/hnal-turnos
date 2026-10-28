@@ -8,26 +8,12 @@
     <div th:if="${mensaje}" class="alert alert-success" role="alert" th:text="${mensaje}"></div>
     <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
 
-    <div class="hnal-card">
-        <div class="hnal-flex-between mb-3">
-            <span class="fw-bold">Incidencias</span>
-            <span class="badge bg-danger" th:text="${pendientes} + ' pendientes'">0 pendientes</span>
-        </div>
-        <p th:if="${#lists.isEmpty(incidencias)}" class="text-muted mb-0">Todavía no se reportó ninguna incidencia.</p>
-        <div th:each="i : ${incidencias}" class="border rounded p-3 mb-2 d-flex justify-content-between align-items-start gap-3"
-             th:classappend="${i.pendiente()} ? 'border-danger'">
-            <div>
-                <div><strong th:text="${i.tipo()}">Tipo</strong>
-                    <span class="badge bg-light text-dark ms-1" th:text="${i.modulo()}">Módulo 1</span></div>
-                <div class="small text-muted" th:text="${i.hora()}">01/01 08:00</div>
-                <div th:if="${i.descripcion() != null}" class="mt-1" th:text="${i.descripcion()}">Descripción</div>
-            </div>
-            <form th:if="${i.pendiente()}" th:action="@{/supervisor/incidencias/{id}/resolver(id=${i.id()})}" method="post" class="m-0">
-                <button type="submit" class="btn btn-sm btn-success">Marcar resuelta</button>
-            </form>
-            <span th:unless="${i.pendiente()}" class="badge bg-success">Resuelta</span>
-        </div>
-    </div>
+    <div id="zona-incidencias" th:insert="~{supervisor/fragmentos :: lista}"></div>
 </div>
+
+<script th:src="@{/js/tiempo-real.js}"></script>
+<script>
+    TiempoReal.iniciar('zona-incidencias', '/supervisor/incidencias/lista');
+</script>
 </body>
 </html>

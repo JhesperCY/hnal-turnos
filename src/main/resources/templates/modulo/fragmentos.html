@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- Zona del panel que cambia sola (la pide tiempo-real.js cuando el servidor avisa de un cambio) -->
+<div th:fragment="zona">
+
+    <div th:unless="${panel.jornadaActiva()}" class="overlay-cerrado">
+        <i class="bi bi-lock"></i>
+        <h2>La jornada no está activa</h2>
+        <p class="text-white-50">No se pueden atender turnos por ahora. Espere a que el supervisor abra la jornada o cierre su sesión.</p>
+        <form th:action="@{/logout}" method="post" class="m-0">
+            <button type="submit" class="btn btn-outline-light mt-2">Cerrar sesión</button>
+        </form>
+    </div>
+
+    <div class="hnal-card mb-3">
+        <div class="hnal-flex-between">
+            <div>
+                <i class="bi bi-circle-fill"
+                   th:classappend="${panel.pausado()} ? 'text-danger' : (${panel.actual() != null} ? 'text-warning' : 'text-success')"></i>
+                Estado: <strong th:text="${panel.pausado()} ? 'Pausado' : (${panel.actual() != null} ? 'Ocupado' : 'Disponible')">Disponible</strong>
+            </div>
+            <small class="text-muted">Atendidos hoy: <strong th:text="${panel.atendidosHoy()}">0</strong>
+                | Prom: <strong th:text="${panel.promedioMin() != null} ? ${#numbers.formatDecimal(panel.promedioMin(), 1, 1)} : '-'">-</strong> min</small>
+        </div>
+        <div class="mt-2">
+            <form th:if="${!panel.pausado()}" th:action="@{/modulo/pausar}" method="post" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Pausar módulo</button>
+            </form>
+            <form th:if="${panel.pausado()}" th:action="@{/modulo/reanudar}" method="post" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-outline-success">Reanudar módulo</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="hnal-card mb-3">
+        <div class="small text-muted mb-2">Turno asignado a este módulo</div>
+        <div th:if="${panel.actual() == null}" class="text-center text-muted py-3">
+            <i class="bi bi-bell-slash fs-3 d-block mb-1"></i> Sin turno activo<br><small>Use el botón para llamar al siguiente</small>
+        </div>
+        <div th:if="${panel.actual() != null}" class="text-center py-2">
+            <span class="badge mb-2"
+                  th:classappend="${panel.actual().tipo().name() == 'PREFERENCIAL'} ? 'bg-warning text-dark' : 'bg-secondary'"
+                  th:text="${panel.actual().tipo().name() == 'PREFERENCIAL'} ? 'Preferencial' : 'General'">General</span>
+            <div class="display-6 fw-bold" th:text="${panel.actual().codigo()}">G-001</div>
+
+            <div th:if="${!panel.actual().enAtencion()}">
+                <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> Llamado · esperando al usuario</span>
+                <div class="small text-muted mt-2">
+                    Llamado a las <span th:text="${panel.actual().horaLlamado()}">--:--:--</span>.
+                    Tiempo de gracia restante:
+                    <strong class="font-monospace" th:attr="data-restan=${panel.actual().restanSegundos()}"
+                            th:text="${panel.actual().restanSegundos()} + ' s'">2:00</strong><br>
+                    Cuando el usuario llegue, pulse <em>Iniciar atención</em>. Si no se presenta, el sistema lo marca
+                    ausente y llama al siguiente.
+                </div>
+            </div>
+
+            <div th:if="${panel.actual().enAtencion()}">
+                <span class="badge bg-success"><i class="bi bi-person-check"></i> En atención</span>
+                <div class="small text-muted mt-2">
+                    Desde las <span th:text="${panel.actual().horaInicio()}">--:--:--</span>.
+                    El tiempo de gracia ya no corre. Pulse <em>Atención completada</em> al terminar.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="hnal-card mb-3">
+        <div class="hnal-flex-between mb-2">
+            <span class="fw-bold">Cola virtual única</span>
+            <small class="text-muted"><span th:text="${panel.enEspera()}">0</span> turnos en espera · bono pref. +<span th:text="${#numbers.formatDecimal(panel.bono(), 1, 1)}">0</span> min</small>
+        </div>
+        <div th:each="f, it : ${panel.proximos()}" class="cola-item" th:classappend="${it.first} ? 'top'">
+            <span class="badge-pos" th:text="${it.count}">1</span>
+            <div class="flex-grow-1">
+                <strong th:text="${f.codigo()}">G-001</strong>
+                <i class="bi"
+                   th:classappend="${f.tipo().name() == 'PREFERENCIAL'} ? 'bi-universal-access-circle text-warning' : 'bi-person text-muted'"></i>
+            </div>
+            <small class="text-muted"
+                   th:text="${f.minutosEspera()} + ' min · urgencia ' + ${#numbers.formatDecimal(f.puntaje(), 1, 1)}">0 min</small>
+        </div>
+        <p th:if="${#lists.isEmpty(panel.proximos())}" class="text-muted small">No hay turnos en espera.</p>
+        <p class="small text-muted mb-0">Urgencia = minutos esperando + bono. El turno de mayor urgencia se asigna al módulo que se libere primero.</p>
+    </div>
+
+    <div class="row g-2 mb-2">
+        <div class="col-6">
+            <form th:action="@{/modulo/llamar}" method="post" class="m-0">
+                <button type="submit" class="btn btn-warning w-100 fw-bold"
+                        title="Llama al turno de mayor urgencia"
+                        th:disabled="${panel.actual() != null || panel.pausado() || !panel.jornadaActiva()}">
+                    <i class="bi bi-megaphone"></i> Llamar siguiente</button>
+            </form>
+        </div>
+        <div class="col-6">
+            <form th:action="@{/modulo/atender}" method="post" class="m-0">
+                <button type="submit" class="btn btn-primary w-100 fw-bold"
+                        title="Presione cuando el usuario llamado llegue al módulo: detiene el tiempo de gracia"
+                        th:disabled="${panel.actual() == null || panel.actual().enAtencion()}">
+                    <i class="bi bi-person-check"></i> Iniciar atención</button>
+            </form>
+        </div>
+    </div>
+    <div class="row g-2 mb-2">
+        <div class="col-6">
+            <form th:action="@{/modulo/completar}" method="post" class="m-0">
+                <button type="submit" class="btn btn-success w-100 fw-bold"
+                        title="Termina la atención y llama al siguiente turno"
+                        th:disabled="${panel.actual() == null || !panel.actual().enAtencion()}">
+                    <i class="bi bi-check2-circle"></i> Atención completada</button>
+            </form>
+        </div>
+        <div class="col-6">
+            <form th:action="@{/modulo/repetir}" method="post" class="m-0">
+                <button type="submit" class="btn btn-outline-warning w-100"
+                        title="Repite el anuncio en la pantalla de la sala de espera"
+                        th:disabled="${panel.actual() == null || panel.actual().enAtencion()}">
+                    <i class="bi bi-arrow-repeat"></i> Volver a llamar</button>
+            </form>
+        </div>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col-12">
+            <form th:action="@{/modulo/ausente}" method="post" class="m-0"
+                  onsubmit="return confirm('¿Marcar al usuario como ausente? El turno se descartará y se llamará al siguiente.');">
+                <button type="submit" class="btn btn-outline-secondary w-100"
+                        title="El usuario llamado no se presentó"
+                        th:disabled="${panel.actual() == null || panel.actual().enAtencion()}">
+                    <i class="bi bi-person-x"></i> Marcar ausencia</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Respuesta cuando el usuario ya no tiene modulo asignado: la pagina se recarga y muestra la eleccion -->
+<div th:fragment="reinicio"></div>
+
+</body>
+</html>

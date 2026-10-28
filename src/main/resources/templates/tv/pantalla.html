@@ -12,6 +12,14 @@
 <div id="overlay-audio" class="overlay-cerrado">
     <i class="bi bi-volume-up"></i>
     <h2>Pantalla de turnos</h2>
+    <div class="mt-3" style="min-width: 22rem; max-width: 90vw;">
+        <label for="select-voz" class="form-label text-white-50 small mb-1">Voz del anuncio</label>
+        <select id="select-voz" class="form-select mb-2"></select>
+        <button id="btn-probar-voz" type="button" class="btn btn-outline-light btn-sm w-100">Probar voz</button>
+        <p class="text-white-50 small mt-2 mb-0" id="ayuda-voz">
+            Las voces marcadas con ★ son neuronales y suenan más naturales. En Microsoft Edge aparecen las "Natural".
+        </p>
+    </div>
     <button id="btn-audio" type="button" class="btn btn-warning btn-lg px-5 mt-3">Activar audio</button>
     <p class="text-white-50 mt-3">Un solo clic al encender la pantalla: después cada llamado se anuncia solo.</p>
 </div>

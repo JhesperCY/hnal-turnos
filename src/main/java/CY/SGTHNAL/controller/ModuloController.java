@@ -3,12 +3,14 @@ package CY.SGTHNAL.controller;
 import java.security.Principal;
 import java.util.Optional;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import CY.SGTHNAL.model.SesionModulo;
@@ -50,6 +52,20 @@ public class ModuloController {
         return "modulo/panel";
     }
 
+    /** Fragmento HTML de la zona que cambia; lo pide tiempo-real.js al recibir un aviso. 409 = ya no tiene modulo asignado. */
+    @GetMapping("/zona")
+    public ModelAndView zona(Principal principal) {
+        Optional<PanelModuloVista> panel = consulta.panelModulo(principal.getName());
+        if (panel.isEmpty()) {
+            ModelAndView vacio = new ModelAndView("modulo/fragmentos :: reinicio");
+            vacio.setStatus(HttpStatus.CONFLICT);
+            return vacio;
+        }
+        ModelAndView vista = new ModelAndView("modulo/fragmentos :: zona");
+        vista.addObject("panel", panel.get());
+        return vista;
+    }
+
     @PostMapping("/iniciar")
     public String iniciar(@RequestParam Integer idModulo, Principal principal, RedirectAttributes redirect) {
         try {
@@ -67,6 +83,18 @@ public class ModuloController {
             redirect.addFlashAttribute("mensaje", turno.isPresent()
                     ? "Turno llamado: " + turno.get().getCodigoTurno()
                     : "No hay turnos en espera");
+        } catch (NegocioException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/modulo";
+    }
+
+    /** El usuario llamado se presento: inicia la atencion y detiene su tiempo de gracia. */
+    @PostMapping("/atender")
+    public String atender(Principal principal, RedirectAttributes redirect) {
+        try {
+            Turno turno = turnoService.iniciarAtencion(idSesion(principal));
+            redirect.addFlashAttribute("mensaje", "Atención iniciada: " + turno.getCodigoTurno());
         } catch (NegocioException e) {
             redirect.addFlashAttribute("error", e.getMessage());
         }

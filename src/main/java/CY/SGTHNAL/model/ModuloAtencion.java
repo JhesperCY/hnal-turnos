@@ -1,8 +1,10 @@
 package CY.SGTHNAL.model;
 
 import CY.SGTHNAL.model.enums.EstadoModulo;
+import CY.SGTHNAL.config.NotificadorCambios;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
@@ -12,6 +14,7 @@ import jakarta.persistence.Table;
 
 /** Tabla modulo_atencion: catalogo que gestiona el supervisor (CU15). */
 @Entity
+@EntityListeners(NotificadorCambios.class)
 @Table(name = "modulo_atencion")
 public class ModuloAtencion {
 

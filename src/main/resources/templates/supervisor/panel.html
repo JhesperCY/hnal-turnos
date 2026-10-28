@@ -78,7 +78,13 @@
                           th:text="${!m.activo()} ? 'Inactivo' : (${m.personal() == null} ? 'Sin personal' : (${m.estado().name() == 'PAUSADO'} ? 'Pausado' : (${m.turnoActivo() != null} ? 'Ocupado' : 'Disponible')))">Disponible</span>
                     <small class="text-muted ms-1" th:if="${m.personal() != null}" th:text="${m.personal()}"></small>
                 </td>
-                <td th:text="${m.turnoActivo() != null} ? ${m.turnoActivo()} : '—'">—</td>
+                <td>
+                    <span th:if="${m.turnoActivo() != null}">
+                        <strong th:text="${m.turnoActivo()}">G-001</strong>
+                        <small class="text-muted" th:text="${m.turnoEnAtencion()} ? 'en atención' : 'llamado'">llamado</small>
+                    </span>
+                    <span th:if="${m.turnoActivo() == null}">—</span>
+                </td>
                 <td th:text="${m.atendidosHoy()}">0</td>
                 <td th:text="${m.promedioMin() != null} ? ${#numbers.formatDecimal(m.promedioMin(), 1, 1)} + ' min' : '—'">—</td>
             </tr>
@@ -93,9 +99,9 @@
         ['mousemove', 'keydown', 'click', 'touchstart'].forEach(function (evento) {
             document.addEventListener(evento, function () { ultimaActividad = Date.now(); });
         });
-        // Se refresca solo mientras haya actividad reciente (10 min): asi la sesion puede caducar a los 15 min de inactividad (RNF009).
+        // Se refresca solo mientras haya actividad reciente (5 min): asi la sesion puede caducar a los 15 min de inactividad (RNF009).
         setInterval(function () {
-            if (600000 > Date.now() - ultimaActividad) { window.location.reload(); }
+            if (300000 > Date.now() - ultimaActividad) { window.location.reload(); }
         }, 10000);
     })();
 </script>

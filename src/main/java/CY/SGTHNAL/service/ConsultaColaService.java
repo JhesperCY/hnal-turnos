@@ -63,11 +63,11 @@ public class ConsultaColaService {
     }
 
     public record ModuloVista(Integer idModulo, String numero, EstadoModulo estado, boolean activo, String personal,
-            String turnoActivo, long atendidosHoy, Double promedioMin) {
+            String turnoActivo, long atendidosHoy, Double promedioMin, boolean turnoEnAtencion) {
     }
 
     public record TurnoActualVista(Integer idTurno, String codigo, TipoAtencion tipo, String horaLlamado,
-            long minutosDesdeLlamado, long graciaMinutos) {
+            long minutosDesdeLlamado, long graciaMinutos, long restanSegundos, boolean enAtencion, String horaInicio) {
     }
 
     public record PanelModuloVista(Integer idSesion, String numeroModulo, boolean pausado, long atendidosHoy,
@@ -191,7 +191,12 @@ public class ConsultaColaService {
         boolean confirmo = notificaciones.existsByTurnoAndEstado(turno, EstadoNotificacion.CONFIRMADO);
         long gracia = PrioridadTurnos.duracionGracia(turno.getTipoAtencion(), confirmo).toMinutes();
         String hora = turno.getHoraLlamado() == null ? "-" : turno.getHoraLlamado().format(HORA);
-        return new TurnoActualVista(turno.getIdTurno(), turno.getCodigoTurno(), turno.getTipoAtencion(), hora, minutos, gracia);
+        long segundos = turno.getHoraLlamado() == null ? 0 : Duration.between(turno.getHoraLlamado(), ahora).getSeconds();
+        long restan = Math.max(0, gracia * 60 - segundos);
+        boolean enAtencion = turno.getHoraInicioAtencion() != null;
+        String horaInicio = enAtencion ? turno.getHoraInicioAtencion().format(HORA) : "-";
+        return new TurnoActualVista(turno.getIdTurno(), turno.getCodigoTurno(), turno.getTipoAtencion(), hora, minutos,
+                gracia, restan, enAtencion, horaInicio);
     }
 
     private ResumenCola resumen(Jornada jornada) {
@@ -231,15 +236,17 @@ public class ConsultaColaService {
                     String turnoActivo = null;
                     long atendidos = 0;
                     Double promedio = null;
+                    boolean enAtencion = false;
                     if (jornada != null) {
-                        turnoActivo = turnos.findFirstByJornadaAndEstadoAndSesionAtencion_Modulo(jornada, EstadoTurno.LLAMADO, m)
-                                .map(Turno::getCodigoTurno).orElse(null);
+                        Optional<Turno> activo = turnos.findFirstByJornadaAndEstadoAndSesionAtencion_Modulo(jornada, EstadoTurno.LLAMADO, m);
+                        turnoActivo = activo.map(Turno::getCodigoTurno).orElse(null);
+                        enAtencion = activo.map(t -> t.getHoraInicioAtencion() != null).orElse(false);
                         atendidos = turnos.countByJornadaAndEstadoAndSesionAtencion_Modulo(jornada, EstadoTurno.ATENDIDO, m);
                         promedio = turnos.promedioDuracionModulo(jornada, EstadoTurno.ATENDIDO, m);
                     }
                     return new ModuloVista(m.getIdModulo(), m.getNumeroModulo(), m.getEstado(),
                             Boolean.TRUE.equals(m.getActivo()), personal.get(m.getIdModulo()), turnoActivo,
-                            atendidos, promedio);
+                            atendidos, promedio, enAtencion);
                 })
                 .toList();
     }

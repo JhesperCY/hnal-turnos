@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: cabecera('Reporte')}"></head>
+<body class="admin-bg">
+<header th:replace="~{fragments/base :: navSupervisor('reporte')}"></header>
+
+<div class="container py-4">
+    <div th:if="${mensaje}" class="alert alert-success" role="alert" th:text="${mensaje}"></div>
+    <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
+
+    <div class="hnal-card mb-3">
+        <div class="fw-bold mb-2"><i class="bi bi-file-earmark-text"></i> Reporte de jornada</div>
+
+        <div th:unless="${previo.jornadaActiva()}" class="alert alert-secondary small">
+            No hay una jornada activa. Puede abrirla desde la pestaña <a th:href="@{/supervisor}">Resumen</a>.
+            Abajo queda el historial de reportes anteriores.
+        </div>
+
+        <div th:if="${previo.jornadaActiva()}" class="small text-muted mb-3">
+            Turnos sin atender ahora:
+            <strong th:text="${previo.enEspera()}">0</strong> en espera y
+            <strong th:text="${previo.enAtencion()}">0</strong> en atención.
+            Al cerrar la jornada se bloquean los nuevos turnos, se cierran las sesiones de los módulos y los turnos en
+            atención pasan a ausentes.
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <form th:action="@{/supervisor/reporte/parcial}" method="post" class="m-0">
+                <button type="submit" class="btn btn-outline-primary" th:disabled="${!previo.jornadaActiva()}">
+                    <i class="bi bi-bar-chart"></i> Consultar reporte parcial</button>
+            </form>
+            <form th:action="@{/supervisor/jornada/cerrar}" method="post" class="m-0"
+                  onsubmit="return confirm('¿Cerrar la jornada? Se bloquearán los nuevos turnos y se cerrarán las sesiones de los módulos.');">
+                <input type="hidden" name="confirmar" value="true">
+                <button type="submit" class="btn btn-danger" th:disabled="${!previo.jornadaActiva()}">
+                    <i class="bi bi-lock"></i> Emitir cierre de jornada</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="hnal-card">
+        <div class="fw-bold mb-2">Historial de reportes</div>
+        <p th:if="${#lists.isEmpty(historial)}" class="text-muted mb-0">Todavía no se generó ningún reporte.</p>
+        <div class="table-responsive" th:if="${!#lists.isEmpty(historial)}">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                <tr><th>#</th><th>Tipo</th><th>Jornada</th><th>Generado</th><th>Atendidos</th><th>Gen.</th><th>Pref.</th>
+                    <th>Espera prom.</th><th>Perdidos</th><th>Incid.</th><th></th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="r : ${historial}">
+                    <td th:text="${r.id()}">1</td>
+                    <td><span class="badge" th:classappend="${r.tipo() == 'Cierre'} ? 'bg-danger' : 'bg-info text-dark'" th:text="${r.tipo()}">Parcial</span></td>
+                    <td th:text="${r.fechaJornada()}">01/01/2026</td>
+                    <td th:text="${r.fechaHora()}">01/01/2026 08:00:00</td>
+                    <td class="fw-bold" th:text="${r.total()}">0</td>
+                    <td th:text="${r.generales()}">0</td>
+                    <td th:text="${r.preferenciales()}">0</td>
+                    <td th:text="${#numbers.formatDecimal(r.esperaMin(), 1, 1)} + ' min'">0 min</td>
+                    <td th:text="${r.perdidos()}">0</td>
+                    <td th:text="${r.incidencias()}">0</td>
+                    <td class="text-end">
+                        <a th:href="@{/supervisor/reporte/{id}/excel(id=${r.id()})}" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-file-earmark-excel"></i> Excel</a>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</body>
+</html>

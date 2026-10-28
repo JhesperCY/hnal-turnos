@@ -4,8 +4,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import CY.SGTHNAL.model.enums.EstadoJornada;
+import CY.SGTHNAL.config.NotificadorCambios;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
@@ -15,6 +17,7 @@ import jakarta.persistence.Table;
 
 /** Tabla jornada: una por dia, la abre y la cierra el supervisor (CU16). */
 @Entity
+@EntityListeners(NotificadorCambios.class)
 @Table(name = "jornada")
 public class Jornada {
 

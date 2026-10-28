@@ -7,8 +7,10 @@ import org.hibernate.type.SqlTypes;
 
 import CY.SGTHNAL.model.enums.EstadoIncidencia;
 
+import CY.SGTHNAL.config.NotificadorCambios;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -21,6 +23,7 @@ import jakarta.persistence.Table;
 
 /** Incidencia operativa registrada durante la jornada. */
 @Entity
+@EntityListeners(NotificadorCambios.class)
 @Table(name = "incidencia")
 public class Incidencia {
 

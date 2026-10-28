@@ -32,6 +32,7 @@
         <ul class="nav">
             <li class="nav-item"><a class="nav-link" th:classappend="${activa == 'resumen'} ? 'active'" th:href="@{/supervisor}"><i class="bi bi-bar-chart"></i> Resumen</a></li>
             <li class="nav-item"><a class="nav-link" th:classappend="${activa == 'incidencias'} ? 'active'" th:href="@{/supervisor/incidencias}"><i class="bi bi-exclamation-triangle"></i> Incidencias</a></li>
+            <li class="nav-item"><a class="nav-link" th:classappend="${activa == 'reporte'} ? 'active'" th:href="@{/supervisor/reporte}"><i class="bi bi-file-earmark-text"></i> Reporte</a></li>
             <li class="nav-item"><a class="nav-link" th:classappend="${activa == 'gestion'} ? 'active'" th:href="@{/supervisor/gestion}"><i class="bi bi-people"></i> Usuarios y módulos</a></li>
         </ul>
     </div>

@@ -20,7 +20,7 @@ import CY.SGTHNAL.repository.TurnoRepository;
 public class TvService {
 
     public record LlamadoVista(Integer idTurno, String codigo, String modulo, String tipo, String estado,
-            String horaUltimoLlamado) {
+            String horaUltimoLlamado, boolean enAtencion) {
     }
 
     /**
@@ -68,6 +68,6 @@ public class TvService {
         String modulo = turno.getSesionAtencion() != null
                 ? turno.getSesionAtencion().getModulo().getNumeroModulo() : "-";
         return new LlamadoVista(turno.getIdTurno(), turno.getCodigoTurno(), modulo, turno.getTipoAtencion().name(),
-                turno.getEstado().name(), turno.getHoraUltimoLlamado().toString());
+                turno.getEstado().name(), turno.getHoraUltimoLlamado().toString(), turno.getHoraInicioAtencion() != null);
     }
 }

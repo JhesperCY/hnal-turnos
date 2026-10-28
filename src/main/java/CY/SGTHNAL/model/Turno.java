@@ -7,8 +7,10 @@ import CY.SGTHNAL.model.enums.EstadoTurno;
 import CY.SGTHNAL.model.enums.ModoRegistro;
 import CY.SGTHNAL.model.enums.TipoAtencion;
 
+import CY.SGTHNAL.config.NotificadorCambios;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -21,6 +23,7 @@ import jakarta.persistence.Table;
 
 /** Turno de un paciente en la cola de una jornada (CU01 a CU07). */
 @Entity
+@EntityListeners(NotificadorCambios.class)
 @Table(name = "turno")
 public class Turno {
 
@@ -73,6 +76,9 @@ public class Turno {
     /** Hora del llamado mas reciente (el inicial o el ultimo "Volver a llamar"); ordena la pantalla TV. */
     private LocalDateTime horaUltimoLlamado;
 
+    /** null = llamado y esperando al usuario; con valor = en atencion (el tiempo de gracia deja de correr). */
+    private LocalDateTime horaInicioAtencion;
+
     private LocalDateTime horaAtencionFin;
 
     @Column(precision = 8, scale = 2)
@@ -119,6 +125,9 @@ public class Turno {
 
     public LocalDateTime getHoraUltimoLlamado() { return horaUltimoLlamado; }
     public void setHoraUltimoLlamado(LocalDateTime horaUltimoLlamado) { this.horaUltimoLlamado = horaUltimoLlamado; }
+
+    public LocalDateTime getHoraInicioAtencion() { return horaInicioAtencion; }
+    public void setHoraInicioAtencion(LocalDateTime horaInicioAtencion) { this.horaInicioAtencion = horaInicioAtencion; }
 
     public LocalDateTime getHoraAtencionFin() { return horaAtencionFin; }
     public void setHoraAtencionFin(LocalDateTime horaAtencionFin) { this.horaAtencionFin = horaAtencionFin; }
