@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import CY.SGTHNAL.integration.identidad.ConsultaIdentidad.DatosPaciente;
 import CY.SGTHNAL.model.ModuloAtencion;
 import CY.SGTHNAL.model.SesionModulo;
 import CY.SGTHNAL.model.Turno;
@@ -22,6 +23,7 @@ import CY.SGTHNAL.model.UsuarioSistema;
 import CY.SGTHNAL.model.enums.EstadoModulo;
 import CY.SGTHNAL.model.enums.EstadoJornada;
 import CY.SGTHNAL.model.enums.EstadoTurno;
+import CY.SGTHNAL.model.enums.ModoRegistro;
 import CY.SGTHNAL.model.enums.RolUsuario;
 import CY.SGTHNAL.model.enums.TipoAtencion;
 import CY.SGTHNAL.model.enums.TipoDocumento;
@@ -29,6 +31,7 @@ import CY.SGTHNAL.repository.JornadaRepository;
 import CY.SGTHNAL.repository.ModuloAtencionRepository;
 import CY.SGTHNAL.repository.SesionModuloRepository;
 import CY.SGTHNAL.repository.UsuarioSistemaRepository;
+import jakarta.persistence.EntityManager;
 
 /**
  * Prueba de integracion contra la base local (perfil "local"). Todo se revierte al terminar cada
@@ -51,6 +54,9 @@ class TurnoServiceTest {
     private ModuloAtencionRepository modulos;
     @Autowired
     private SesionModuloRepository sesiones;
+
+    @Autowired
+    private EntityManager entityManager;
 
     private SesionModulo sesion;
 
@@ -80,6 +86,24 @@ class TurnoServiceTest {
 
     private static String documentoNuevo() {
         return "9" + String.format("%08d", ThreadLocalRandom.current().nextInt(100_000_000));
+    }
+
+    @Test
+    void persisteLosComponentesDelNombreSinAlterarElDocumento() {
+        String documento = "00" + documentoNuevo();
+        var datos = new DatosPaciente("ANA MARÍA", "PÉREZ", "LEÓN", null);
+        Turno turno = turnoService.registrarTurno(TipoDocumento.CE, documento, null, TipoAtencion.GENERAL,
+                datos, ModoRegistro.NORMAL);
+
+        entityManager.flush();
+        entityManager.clear();
+        var paciente = entityManager.find(Turno.class, turno.getIdTurno()).getPaciente();
+
+        assertEquals(documento, paciente.getNumeroDocumento());
+        assertEquals("ANA MARÍA", paciente.getNombres());
+        assertEquals("PÉREZ", paciente.getApellidoPaterno());
+        assertEquals("LEÓN", paciente.getApellidoMaterno());
+        assertEquals("PÉREZ LEÓN ANA MARÍA", paciente.getNombreCompleto());
     }
 
     @Test

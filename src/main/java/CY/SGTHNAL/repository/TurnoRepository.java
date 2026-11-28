@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -17,6 +19,10 @@ import CY.SGTHNAL.model.enums.EstadoTurno;
 import CY.SGTHNAL.model.enums.TipoAtencion;
 
 public interface TurnoRepository extends JpaRepository<Turno, Integer> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from Turno t where t.idTurno = :id")
+    Optional<Turno> findByIdForUpdate(@Param("id") Integer id);
 
     List<Turno> findByJornadaAndEstadoOrderByHoraRegistroAsc(Jornada jornada, EstadoTurno estado);
 

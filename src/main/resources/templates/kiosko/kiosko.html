@@ -1,12 +1,19 @@
 <!DOCTYPE html>
 <html lang="es" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/base :: cabecera('Kiosko')}"></head>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kiosco de turnos</title>
+    <link rel="stylesheet" th:href="@{/kiosko/vendor/bootstrap/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/kiosko/vendor/bootstrap-icons/bootstrap-icons.min.css}">
+    <link rel="stylesheet" th:href="@{/css/hnal.css}">
+</head>
 <body class="kiosko-bg">
 
 <div id="overlay-cerrado" class="overlay-cerrado d-none">
     <i class="bi bi-moon-stars"></i>
-    <h2>Fuera de horario de atención</h2>
-    <p class="text-white-50">El registro de turnos no está disponible en este momento.<br>Por favor, vuelva a intentarlo más tarde.</p>
+    <h2 data-i18n="cerrado">Fuera de horario de atención</h2>
+    <p class="text-white-50" data-i18n="cerradoDetalle" style="white-space: pre-line">El registro de turnos no está disponible en este momento.<br>Por favor, vuelva a intentarlo más tarde.</p>
 </div>
 
 <div class="hnal-center-screen">
@@ -15,103 +22,106 @@
         <div class="hnal-flex-between mb-3">
             <small class="text-white-50">Hospital Nacional Arzobispo Loayza</small>
             <div class="dropdown">
-                <button class="btn btn-sm btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <button class="btn btn-sm btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown" data-i18n-aria="idioma" aria-label="Idioma">
                     <i class="bi bi-translate"></i> <span id="idioma-actual">Español</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="#" onclick="Kiosko.idioma('Español'); return false;">Español</a></li>
-                    <li><a class="dropdown-item" href="#" onclick="Kiosko.idioma('Quechua'); return false;">Quechua</a></li>
-                    <li><a class="dropdown-item" href="#" onclick="Kiosko.idioma('Aymara'); return false;">Aymara</a></li>
-                    <li><a class="dropdown-item" href="#" onclick="Kiosko.idioma('English'); return false;">English</a></li>
-                    <li><a class="dropdown-item" href="#" onclick="Kiosko.idioma('Português'); return false;">Português</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="Kiosko.idioma('es'); return false;" lang="es">Español</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="Kiosko.idioma('qu'); return false;" lang="qu">Quechua</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="Kiosko.idioma('ay'); return false;" lang="ay">Aymara</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="Kiosko.idioma('en'); return false;" lang="en">English</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="Kiosko.idioma('pt-BR'); return false;" lang="pt-BR">Português (Brasil)</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="Kiosko.idioma('cni'); return false;" lang="cni">Asháninka</a></li>
                 </ul>
             </div>
         </div>
-        <div id="aviso-idioma" class="small text-warning text-center mb-3 d-none"></div>
+        <div id="aviso-idioma" role="status" class="small text-warning text-center mb-3 d-none"></div>
 
         <div id="paso-inicio" class="paso">
-            <h5 class="text-center mb-4">¿Qué desea hacer?</h5>
+            <h5 class="text-center mb-4"><span data-i18n="inicio">¿Qué desea hacer?</span></h5>
             <button type="button" class="kiosko-option" onclick="Kiosko.ir('paso-tipo-doc')">
                 <i class="bi bi-file-earmark-plus fs-4"></i>
-                <div><div>Nueva solicitud de turno</div><small class="text-muted">Regístrese para obtener un ticket</small></div>
+                <div><div><span data-i18n="solicitud">Nueva solicitud de turno</span></div><small class="text-muted"><span data-i18n="solicitudDetalle">Regístrese para obtener un ticket</span></small></div>
             </button>
             <button type="button" class="kiosko-option" onclick="Kiosko.ir('paso-reimpresion')">
                 <i class="bi bi-printer fs-4"></i>
-                <div><div>Reimprimir ticket</div><small class="text-muted">Ya tengo un turno registrado</small></div>
+                <div><div><span data-i18n="reimprimir">Reimprimir ticket</span></div><small class="text-muted"><span data-i18n="reimprimirDetalle">Ya tengo un turno registrado</span></small></div>
             </button>
         </div>
 
         <div id="paso-tipo-doc" class="paso d-none">
-            <h5 class="text-center mb-4">Seleccione su tipo de documento</h5>
-            <button type="button" class="kiosko-option" onclick="Kiosko.elegirDocumento('DNI')"><i class="bi bi-person-vcard fs-4"></i> DNI</button>
-            <button type="button" class="kiosko-option" onclick="Kiosko.elegirDocumento('CE')"><i class="bi bi-globe2 fs-4"></i> Carnet de Extranjería</button>
-            <button type="button" class="kiosko-option" onclick="Kiosko.elegirDocumento('PASAPORTE')"><i class="bi bi-passport fs-4"></i> Pasaporte</button>
-            <button type="button" class="btn btn-link text-white-50 w-100 mt-2" onclick="Kiosko.ir('paso-inicio')">Atrás</button>
+            <h5 class="text-center mb-4"><span data-i18n="elegirDocumento">Seleccione su tipo de documento</span></h5>
+            <button type="button" class="kiosko-option" onclick="Kiosko.elegirDocumento('DNI')"><i class="bi bi-person-vcard fs-4"></i> <span data-i18n="DNI">DNI</span></button>
+            <button type="button" class="kiosko-option" onclick="Kiosko.elegirDocumento('CE')"><i class="bi bi-globe2 fs-4"></i> <span data-i18n="CE">Carnet de Extranjería</span></button>
+            <button type="button" class="kiosko-option" onclick="Kiosko.elegirDocumento('PASAPORTE')"><i class="bi bi-passport fs-4"></i> <span data-i18n="PASAPORTE">Pasaporte</span></button>
+            <button type="button" class="btn btn-link text-white-50 w-100 mt-2" onclick="Kiosko.ir('paso-inicio')"><span data-i18n="atras">Atrás</span></button>
         </div>
 
         <div id="paso-datos" class="paso d-none">
-            <h5 class="text-center mb-3">Ingrese sus datos</h5>
+            <h5 class="text-center mb-3"><span data-i18n="datos">Ingrese sus datos</span></h5>
             <div class="bg-white text-dark rounded-3 p-3 mb-3">
-                <label class="form-label small mb-1">Número de documento (<span id="doc-tipo-actual"></span>)</label>
-                <input id="input-documento" class="form-control mb-1" readonly placeholder="Toque para ingresar">
+                <label class="form-label small mb-1"><span data-i18n="numeroDocumento">Número de documento</span> (<span id="doc-tipo-actual"></span>)</label>
+                <input id="input-documento" class="form-control mb-1" maxlength="12" autocomplete="off" readonly data-i18n-placeholder="ingresar" placeholder="Toque para ingresar">
                 <small class="text-danger d-block mb-2" id="error-documento"></small>
-                <label class="form-label small mb-1">Teléfono de contacto</label>
-                <input id="input-telefono" class="form-control" readonly placeholder="Toque para ingresar">
+                <label class="form-label small mb-1"><span data-i18n="telefono">Teléfono de contacto</span></label>
+                <input id="input-telefono" class="form-control" readonly data-i18n-placeholder="ingresar" placeholder="Toque para ingresar">
                 <small class="text-muted d-block mt-1" id="estado-telefono"></small>
             </div>
             <div class="keypad mb-3" id="keypad"></div>
             <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-light flex-fill" onclick="Kiosko.ir('paso-tipo-doc')">Atrás</button>
-                <button type="button" class="btn btn-light flex-fill" onclick="Kiosko.omitirTelefono()">Omitir teléfono</button>
-                <button type="button" class="btn btn-warning flex-fill fw-bold" onclick="Kiosko.avanzarADatos()">Siguiente</button>
+                <button type="button" class="btn btn-outline-light flex-fill" onclick="Kiosko.ir('paso-tipo-doc')"><span data-i18n="atras">Atrás</span></button>
+                <button type="button" class="btn btn-light flex-fill" onclick="Kiosko.omitirTelefono()"><span data-i18n="omitir">Omitir teléfono</span></button>
+                <button type="button" class="btn btn-warning flex-fill fw-bold" onclick="Kiosko.avanzarADatos()"><span data-i18n="siguiente">Siguiente</span></button>
             </div>
         </div>
 
         <div id="paso-atencion" class="paso d-none">
-            <h5 class="text-center mb-4">Tipo de atención</h5>
+            <h5 class="text-center mb-4"><span data-i18n="atencion">Tipo de atención</span></h5>
             <button type="button" class="kiosko-option" onclick="Kiosko.registrar('GENERAL')">
                 <i class="bi bi-person fs-4"></i>
-                <div><div>Atención General</div><small class="text-muted">General</small></div>
+                <div><div><span data-i18n="atencionGeneral">Atención General</span></div><small class="text-muted" data-i18n="general">General</small></div>
             </button>
             <button type="button" class="kiosko-option" onclick="Kiosko.registrar('PREFERENCIAL')">
                 <i class="bi bi-universal-access-circle fs-4"></i>
-                <div><div>Atención Preferencial</div><small class="text-muted">Adulto mayor, gestante o persona con discapacidad</small></div>
+                <div><div><span data-i18n="atencionPreferencial">Atención Preferencial</span></div><small class="text-muted"><span data-i18n="preferencialDetalle">Adulto mayor, gestante o persona con discapacidad</span></small></div>
             </button>
-            <p class="small text-white-50 text-center mt-2 mb-0">El personal verificará que su selección sea correcta.</p>
-            <button type="button" class="btn btn-link text-white-50 w-100 mt-2" onclick="Kiosko.ir('paso-datos')">Atrás</button>
+            <p class="small text-white-50 text-center mt-2 mb-0"><span data-i18n="verificacion">El personal verificará que su selección sea correcta.</span></p>
+            <button type="button" class="btn btn-link text-white-50 w-100 mt-2" onclick="Kiosko.ir('paso-datos')"><span data-i18n="atras">Atrás</span></button>
         </div>
 
         <div id="paso-ticket" class="paso d-none text-center">
-            <p class="fs-5 mb-3"><i class="bi bi-check-circle-fill text-success"></i> ¡Turno registrado!</p>
+            <p class="fs-5 mb-3"><i class="bi bi-check-circle-fill text-success"></i> <span data-i18n="registrado">¡Turno registrado!</span></p>
             <div class="ticket-box mb-3">
                 <div id="ticket-header" class="ticket-header general hnal-flex-between px-3">
                     <span id="ticket-tipo">General</span><span id="ticket-hora"></span>
                 </div>
                 <div class="ticket-codigo" id="ticket-codigo">G-000</div>
                 <div class="d-flex justify-content-around pb-3 small text-muted">
-                    <div>Posición en cola<br><strong id="ticket-posicion" class="fs-5 text-dark">#1</strong></div>
-                    <div>Tiempo de gracia<br><strong id="ticket-gracia" class="fs-5 text-dark">2 minutos</strong></div>
+                    <div><span data-i18n="posicion">Posición en cola</span><br><strong id="ticket-posicion" class="fs-5 text-dark">#1</strong></div>
+                    <div><span data-i18n="gracia">Tiempo de gracia</span><br><strong id="ticket-gracia" class="fs-5 text-dark">2 minutos</strong></div>
                 </div>
                 <p class="small text-muted px-3 pb-3 mb-0" id="ticket-nota"></p>
+                <p class="small text-dark px-3 pb-3 mb-0 d-none" id="ticket-contingencia" role="status"></p>
             </div>
-            <button type="button" class="btn btn-outline-light w-100 mb-2" onclick="Kiosko.imprimir()"><i class="bi bi-printer"></i> Imprimir ticket</button>
-            <button type="button" class="btn btn-light w-100 fw-bold" onclick="Kiosko.ir('paso-inicio')">Nuevo turno <span id="cuenta-regresiva" class="text-muted"></span></button>
+            <button type="button" id="ticket-enviar-sms" class="btn btn-warning w-100 mb-2 d-none" onclick="Kiosko.enviarTicketActual(this)"><span data-i18n="ticketSms">Recibir ticket por SMS</span></button>
+            <button type="button" class="btn btn-outline-light w-100 mb-2" onclick="Kiosko.imprimir()"><i class="bi bi-printer"></i> <span data-i18n="imprimir">Imprimir ticket</span></button>
+            <button type="button" class="btn btn-light w-100 fw-bold" onclick="Kiosko.ir('paso-inicio')"><span data-i18n="nuevo">Nuevo turno</span> <span id="cuenta-regresiva" class="text-muted"></span></button>
         </div>
 
         <div id="paso-reimpresion" class="paso d-none">
-            <h5 class="text-center mb-3">Reimprimir ticket</h5>
+            <h5 class="text-center mb-3"><span data-i18n="reimprimir">Reimprimir ticket</span></h5>
             <div class="bg-white text-dark rounded-3 p-3 mb-3">
-                <label class="form-label small mb-1">Número de documento</label>
-                <input id="input-doc-reimpresion" class="form-control" readonly placeholder="Toque para ingresar">
+                <label class="form-label small mb-1"><span data-i18n="numeroDocumento">Número de documento</span></label>
+                <input id="input-doc-reimpresion" class="form-control" maxlength="12" autocomplete="off" data-i18n-placeholder="ingresar" placeholder="Toque para ingresar">
             </div>
             <div class="keypad mb-3" id="keypad-reimpresion"></div>
-            <button type="button" class="btn btn-warning w-100 mb-3 fw-bold" onclick="Kiosko.buscarReimpresion()"><i class="bi bi-search"></i> Buscar turno</button>
+            <button type="button" class="btn btn-warning w-100 mb-3 fw-bold" onclick="Kiosko.buscarReimpresion()"><i class="bi bi-search"></i> <span data-i18n="buscar">Buscar turno</span></button>
             <div id="resultado-reimpresion" class="mb-2"></div>
-            <button type="button" class="btn btn-outline-light w-100" onclick="Kiosko.ir('paso-inicio')">Atrás</button>
+            <button type="button" class="btn btn-outline-light w-100" onclick="Kiosko.ir('paso-inicio')"><span data-i18n="atras">Atrás</span></button>
         </div>
 
         <div class="text-center mt-3">
-            <a th:href="@{/login}" class="small text-white-50">Acceso personal</a>
+            <a th:href="@{/login}" class="small text-white-50"><span data-i18n="personal">Acceso personal</span></a>
         </div>
 
     </div>
@@ -119,18 +129,18 @@
 
 <div class="ticket-imprimible" id="ticket-imprimible">
     <div style="text-align:center;font-weight:bold;">HOSPITAL NACIONAL ARZOBISPO LOAYZA</div>
-    <div style="text-align:center;">Ticket de atención</div>
+    <div style="text-align:center;"><span data-i18n="ticket">Ticket de atención</span></div>
     <hr>
     <div class="codigo" id="imp-codigo">G-000</div>
     <div style="text-align:center;" id="imp-tipo">General</div>
     <hr>
-    <div>Fecha/hora: <span id="imp-hora"></span></div>
-    <div>Posición en cola: <span id="imp-posicion"></span></div>
+    <div><span data-i18n="fechaHora">Fecha/hora</span>: <span id="imp-hora"></span></div>
+    <div><span data-i18n="posicion">Posición en cola</span>: <span id="imp-posicion"></span></div>
     <hr>
-    <div style="text-align:center;">Siga la pantalla de TV para su llamado.</div>
+    <div style="text-align:center;"><span data-i18n="seguirTv">Siga la pantalla de TV para su llamado.</span></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-<script th:src="@{/js/kiosko.js}"></script>
+<script th:src="@{/kiosko/vendor/bootstrap/bootstrap.bundle.min.js}"></script>
+<script th:src="@{/js/kiosko.js}" th:attr="data-i18n-url=@{/kiosko/i18n/}"></script>
 </body>
 </html>

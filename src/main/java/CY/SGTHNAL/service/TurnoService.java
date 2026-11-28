@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import CY.SGTHNAL.integration.identidad.ConsultaIdentidad.DatosPaciente;
 import CY.SGTHNAL.model.Jornada;
 import CY.SGTHNAL.model.ModuloAtencion;
 import CY.SGTHNAL.model.Paciente;
@@ -53,6 +55,7 @@ public class TurnoService {
     private final SesionModuloRepository sesiones;
     private final ModuloAtencionRepository modulos;
     private final NotificacionRepository notificaciones;
+    private final AvisoLlamadoService avisos;
 
     /** Minutos de atencion que se asumen mientras no haya turnos atendidos (para el bono preferencial). */
     @Value("${app.turnos.atencion-default-min:7}")
@@ -60,7 +63,7 @@ public class TurnoService {
 
     public TurnoService(TurnoRepository turnos, JornadaRepository jornadas, PacienteRepository pacientes,
             TelefonoContactoRepository telefonos, SesionModuloRepository sesiones,
-            ModuloAtencionRepository modulos, NotificacionRepository notificaciones) {
+            ModuloAtencionRepository modulos, NotificacionRepository notificaciones, AvisoLlamadoService avisos) {
         this.turnos = turnos;
         this.jornadas = jornadas;
         this.pacientes = pacientes;
@@ -68,12 +71,19 @@ public class TurnoService {
         this.sesiones = sesiones;
         this.modulos = modulos;
         this.notificaciones = notificaciones;
+        this.avisos = avisos;
     }
 
     /** CU01: registra un turno en la cola unica. Un paciente solo puede tener un turno activo (FE05). */
     @Transactional
     public Turno registrarTurno(TipoDocumento tipoDocumento, String numeroDocumento, String telefono,
             TipoAtencion tipoAtencion) {
+        return registrarTurno(tipoDocumento, numeroDocumento, telefono, tipoAtencion, null, ModoRegistro.NORMAL);
+    }
+
+    @Transactional
+    public Turno registrarTurno(TipoDocumento tipoDocumento, String numeroDocumento, String telefono,
+            TipoAtencion tipoAtencion, DatosPaciente datos, ModoRegistro modo) {
         if (tipoDocumento == null || tipoAtencion == null) {
             throw new NegocioException("Faltan datos para registrar el turno");
         }
@@ -89,13 +99,22 @@ public class TurnoService {
         Jornada jornada = jornadaActivaBloqueada();
 
         Paciente paciente = pacientes.findByTipoDocumentoAndNumeroDocumento(tipoDocumento, documento).orElse(null);
-        if (paciente == null) {
+        boolean pacienteNuevo = paciente == null;
+        if (pacienteNuevo) {
             paciente = new Paciente();
             paciente.setTipoDocumento(tipoDocumento);
             paciente.setNumeroDocumento(documento);
-            paciente = pacientes.save(paciente);
         } else if (turnos.findFirstByJornadaAndPacienteAndEstadoIn(jornada, paciente, ACTIVOS).isPresent()) {
-            throw new NegocioException("Ya tiene un turno activo en la jornada de hoy");
+            throw new NegocioException("Ya tiene un turno activo en la jornada de hoy", "turnoDuplicado");
+        }
+        if (datos != null) {
+            paciente.setNombres(datos.nombres());
+            paciente.setApellidoPaterno(datos.apellidoPaterno());
+            paciente.setApellidoMaterno(datos.apellidoMaterno());
+            paciente.setNombreCompleto(datos.nombreCompleto());
+        }
+        if (pacienteNuevo) {
+            paciente = pacientes.save(paciente);
         }
 
         LocalDateTime ahora = LocalDateTime.now();
@@ -105,7 +124,7 @@ public class TurnoService {
         turno.setJornada(jornada);
         turno.setTipoAtencion(tipoAtencion);
         turno.setEstado(EstadoTurno.EN_ESPERA);
-        turno.setModoRegistro(ModoRegistro.NORMAL);
+        turno.setModoRegistro(modo);
         turno.setHoraRegistro(ahora);
         turno.setTelefonoVisita(fono.isEmpty() ? null : fono);
         turno.setPuntajeUrgencia(tipoAtencion == TipoAtencion.PREFERENCIAL
@@ -119,6 +138,7 @@ public class TurnoService {
             contacto.setFechaUso(ahora);
             telefonos.save(contacto);
         }
+        revisarAvisos(jornada);
         return turno;
     }
 
@@ -157,6 +177,7 @@ public class TurnoService {
         ModuloAtencion modulo = sesion.getModulo();
         modulo.setEstado(EstadoModulo.OCUPADO);
         modulos.save(modulo);
+        revisarAvisos(jornada);
         return Optional.of(turno);
     }
 
@@ -283,11 +304,23 @@ public class TurnoService {
         return BigDecimal.valueOf(bono).setScale(2, RoundingMode.HALF_UP);
     }
 
+    private void revisarAvisos(Jornada jornada) {
+        if (!avisos.habilitado()) {
+            return;
+        }
+        LocalDateTime ahora = LocalDateTime.now();
+        BigDecimal bono = bonoPreferencial(jornada);
+        var cola = turnos.findByJornadaAndEstadoOrderByHoraRegistroAscIdTurnoAsc(jornada, EstadoTurno.EN_ESPERA)
+                .stream().sorted(Comparator.comparing((Turno turno) ->
+                        PrioridadTurnos.calcularPuntaje(turno, ahora, bono)).reversed()).toList();
+        avisos.revisarCola(cola);
+    }
+
     private Jornada jornadaActivaBloqueada() {
         Jornada activa = jornadas.findFirstByEstado(EstadoJornada.ACTIVA)
-                .orElseThrow(() -> new NegocioException("No hay una jornada activa"));
+                .orElseThrow(() -> new NegocioException("No hay una jornada activa", "jornadaInactiva"));
         return jornadas.findByIdForUpdate(activa.getIdJornada())
-                .orElseThrow(() -> new NegocioException("No hay una jornada activa"));
+                .orElseThrow(() -> new NegocioException("No hay una jornada activa", "jornadaInactiva"));
     }
 
     private SesionModulo sesionAbierta(Integer idSesion) {
