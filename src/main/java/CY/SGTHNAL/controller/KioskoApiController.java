@@ -10,12 +10,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import CY.SGTHNAL.model.Turno;
+import CY.SGTHNAL.model.enums.ModoRegistro;
 import CY.SGTHNAL.model.enums.TipoAtencion;
 import CY.SGTHNAL.model.enums.TipoDocumento;
+import CY.SGTHNAL.service.AvisoLlamadoService;
 import CY.SGTHNAL.service.ConsultaColaService;
 import CY.SGTHNAL.service.ConsultaColaService.ReimpresionVista;
 import CY.SGTHNAL.service.ConsultaColaService.TicketVista;
 import CY.SGTHNAL.service.NegocioException;
+import CY.SGTHNAL.service.IdentidadService;
 import CY.SGTHNAL.service.TurnoService;
 
 /** API que usa el kiosko (CU01, CU02). Es anonima: validar aqui cada dato, no confiar en la pantalla. */
@@ -30,14 +33,20 @@ public class KioskoApiController {
     public record SolicitudReimpresion(String numeroDocumento) {
     }
 
+    public record SolicitudTicketSms(Integer idTurno, String numeroDocumento, String telefono) {
+    }
+
+    public record RespuestaTicketSms(String codigoMensaje) {
+    }
+
     public record TicketApi(Integer idTurno, String codigo, String tipo, String hora, String fecha, int posicion,
             long enEspera, long graciaMinutos) {
     }
 
-    public record RespuestaTurno(boolean ok, String mensaje, TicketApi ticket) {
+    public record RespuestaTurno(boolean ok, String mensaje, TicketApi ticket, String codigoMensaje, boolean contingencia) {
     }
 
-    public record RespuestaReimpresion(String estado, String mensaje, TicketApi ticket, String modulo) {
+    public record RespuestaReimpresion(String estado, String mensaje, TicketApi ticket, String modulo, String codigoMensaje) {
     }
 
     public record EstadoKiosko(boolean disponible) {
@@ -49,9 +58,15 @@ public class KioskoApiController {
     private final TurnoService turnoService;
     private final ConsultaColaService consulta;
 
-    public KioskoApiController(TurnoService turnoService, ConsultaColaService consulta) {
+    private final IdentidadService identidad;
+    private final AvisoLlamadoService avisos;
+
+    public KioskoApiController(TurnoService turnoService, ConsultaColaService consulta, IdentidadService identidad,
+            AvisoLlamadoService avisos) {
         this.turnoService = turnoService;
         this.consulta = consulta;
+        this.identidad = identidad;
+        this.avisos = avisos;
     }
 
     @GetMapping("/estado")
@@ -63,18 +78,36 @@ public class KioskoApiController {
     public ResponseEntity<RespuestaTurno> registrar(@RequestBody SolicitudTurno solicitud) {
         String error = validar(solicitud);
         if (error != null) {
-            return ResponseEntity.badRequest().body(new RespuestaTurno(false, error, null));
+            return ResponseEntity.badRequest().body(new RespuestaTurno(false, error, null, "registroInvalido", false));
         }
         try {
             String telefono = solicitud.telefono() == null ? "" : solicitud.telefono().trim();
+            String documento = solicitud.numeroDocumento().trim();
+            if (!consulta.hayJornadaActiva()) {
+                throw new NegocioException("No hay una jornada activa", "jornadaInactiva");
+            }
+            var resultado = identidad.consultar(solicitud.tipoDocumento(), documento);
+            ModoRegistro modo = resultado.contingencia() ? ModoRegistro.CONTINGENCIA : ModoRegistro.NORMAL;
             Turno turno = turnoService.registrarTurno(solicitud.tipoDocumento(),
-                    solicitud.numeroDocumento().trim(), telefono, solicitud.tipoAtencion());
+                    documento, telefono, solicitud.tipoAtencion(), resultado.datos(), modo);
             TicketVista ticket = consulta.ticket(turno.getIdTurno())
                     .orElseThrow(() -> new NegocioException("No se pudo generar el ticket"));
-            return ResponseEntity.ok(new RespuestaTurno(true, null, aApi(ticket)));
+            return ResponseEntity.ok(new RespuestaTurno(true, null, aApi(ticket), null,
+                    turno.getModoRegistro() == ModoRegistro.CONTINGENCIA));
         } catch (NegocioException e) {
-            return ResponseEntity.badRequest().body(new RespuestaTurno(false, e.getMessage(), null));
+            return ResponseEntity.badRequest().body(new RespuestaTurno(false, e.getMessage(), null, e.getCodigo(), false));
         }
+    }
+
+    @PostMapping("/ticket/sms")
+    public ResponseEntity<RespuestaTicketSms> enviarTicket(@RequestBody SolicitudTicketSms solicitud) {
+        if (solicitud == null || solicitud.idTurno() == null || solicitud.numeroDocumento() == null
+                || !solicitud.numeroDocumento().trim().matches("[A-Za-z0-9]{6,12}")) {
+            return ResponseEntity.badRequest().body(new RespuestaTicketSms("smsTurnoNoDisponible"));
+        }
+        String telefono = solicitud.telefono() == null ? "" : solicitud.telefono().trim();
+        return ResponseEntity.ok(new RespuestaTicketSms(avisos.solicitarTicket(
+                solicitud.idTurno(), solicitud.numeroDocumento().trim(), telefono)));
     }
 
     @PostMapping("/reimpresion")
@@ -82,7 +115,7 @@ public class KioskoApiController {
         String documento = solicitud.numeroDocumento() == null ? "" : solicitud.numeroDocumento().trim();
         if (!documento.matches("[A-Za-z0-9]{6,12}")) {
             return ResponseEntity.badRequest()
-                    .body(new RespuestaReimpresion("ERROR", "Ingrese un número de documento válido.", null, null));
+                    .body(new RespuestaReimpresion("ERROR", "Ingrese un número de documento válido.", null, null, "documentoInvalido"));
         }
         ReimpresionVista r = consulta.reimpresion(documento);
         String mensaje = switch (r.estado()) {
@@ -91,7 +124,7 @@ public class KioskoApiController {
             default -> null;
         };
         return ResponseEntity.ok(new RespuestaReimpresion(r.estado(), mensaje,
-                r.ticket() == null ? null : aApi(r.ticket()), r.modulo()));
+                r.ticket() == null ? null : aApi(r.ticket()), r.modulo(), null));
     }
 
     private static TicketApi aApi(TicketVista t) {
@@ -115,7 +148,7 @@ public class KioskoApiController {
         }
         String telefono = s.telefono() == null ? "" : s.telefono().trim();
         if (!telefono.isEmpty() && !telefono.matches("\\d{1,15}")) {
-            return "El teléfono solo puede tener números.";
+            return "Ingrese un número de teléfono válido.";
         }
         return null;
     }
